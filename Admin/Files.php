@@ -10,6 +10,76 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 // Include your database connection
 require_once 'PNP_Archive.php';
 
+// Handle file deletion
+if (isset($_GET['delete_file'])) {
+    $file_id = (int)$_GET['delete_file'];
+    
+    // Get file info to delete physical file
+    $stmt = $conn->prepare("SELECT file_path, folder_id FROM files WHERE id = ?");
+    $stmt->bind_param("i", $file_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $file = $result->fetch_assoc();
+    
+    if ($file) {
+        // Delete physical file
+        if (file_exists($file['file_path'])) {
+            unlink($file['file_path']);
+        }
+        
+        // Delete database record
+        $stmt = $conn->prepare("DELETE FROM files WHERE id = ?");
+        $stmt->bind_param("i", $file_id);
+        $stmt->execute();
+        
+        $redirect_folder = $file['folder_id'] ?? '';
+        header("Location: files.php?folder=" . $redirect_folder . "&success=File deleted successfully");
+        exit();
+    }
+}
+
+// Handle folder deletion
+if (isset($_GET['delete_folder'])) {
+    $folder_id = (int)$_GET['delete_folder'];
+    
+    // Start transaction
+    $conn->begin_transaction();
+    
+    try {
+        // First, get all files in this folder to delete physical files
+        $stmt = $conn->prepare("SELECT file_path FROM files WHERE folder_id = ?");
+        $stmt->bind_param("i", $folder_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        // Delete physical files
+        while ($file = $result->fetch_assoc()) {
+            if (file_exists($file['file_path'])) {
+                unlink($file['file_path']);
+            }
+        }
+        
+        // Delete all files in the folder (database records)
+        $stmt = $conn->prepare("DELETE FROM files WHERE folder_id = ?");
+        $stmt->bind_param("i", $folder_id);
+        $stmt->execute();
+        
+        // Delete the folder
+        $stmt = $conn->prepare("DELETE FROM folders WHERE id = ?");
+        $stmt->bind_param("i", $folder_id);
+        $stmt->execute();
+        
+        $conn->commit();
+        header("Location: files.php?success=Folder and all its contents deleted successfully");
+        exit();
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        header("Location: files.php?error=Failed to delete folder");
+        exit();
+    }
+}
+
 // Get current folder ID from URL (if any)
 $current_folder = isset($_GET['folder']) ? (int)$_GET['folder'] : null;
 
@@ -339,14 +409,6 @@ function getMonths() {
         '11' => 'November',
         '12' => 'December'
     ];
-}
-
-// Get days in month
-function getDaysInMonth($month, $year) {
-    if ($month && $year) {
-        return cal_days_in_month(CAL_GREGORIAN, (int)$month, (int)$year);
-    }
-    return 31;
 }
 
 // Format date for display
@@ -680,7 +742,7 @@ $months = getMonths();
                                             <button class="folder-action-btn" onclick="event.stopPropagation(); openRenameFolderModal(<?php echo $folder['id']; ?>, '<?php echo htmlspecialchars($folder['folder_name']); ?>')">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="folder-action-btn" onclick="event.stopPropagation(); deleteFolder(<?php echo $folder['id']; ?>)">
+                                            <button class="folder-action-btn" onclick="event.stopPropagation(); confirmDeleteFolder(<?php echo $folder['id']; ?>)">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -783,7 +845,7 @@ $months = getMonths();
                                                     <button class="action-btn btn-view" title="View Details" onclick="viewFileDetails(<?php echo $file['id']; ?>)">
                                                         <i class="fas fa-eye"></i>
                                                     </button>
-                                                    <button class="action-btn btn-delete" title="Delete" onclick="deleteFile(<?php echo $file['id']; ?>)">
+                                                    <button class="action-btn btn-delete" title="Delete" onclick="confirmDeleteFile(<?php echo $file['id']; ?>)">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </div>
@@ -1110,6 +1172,19 @@ $months = getMonths();
                 });
         }
 
+        // Confirmation functions for deletions
+        function confirmDeleteFile(fileId) {
+            if (confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+                window.location.href = 'files.php?delete_file=' + fileId;
+            }
+        }
+
+        function confirmDeleteFolder(folderId) {
+            if (confirm('Are you sure you want to delete this folder? ALL FILES inside will be permanently deleted. This action cannot be undone.')) {
+                window.location.href = 'files.php?delete_folder=' + folderId;
+            }
+        }
+
         // Add event listener for month selection change
         document.getElementById('document_month').addEventListener('change', populateDays);
 
@@ -1136,18 +1211,14 @@ $months = getMonths();
             }
         }
 
-        // Delete folder function
+        // Delete folder function (legacy - keep for backward compatibility)
         function deleteFolder(folderId) {
-            if (confirm('Are you sure you want to delete this folder? All files inside will be moved to root.')) {
-                window.location.href = 'delete_folder.php?id=' + folderId;
-            }
+            confirmDeleteFolder(folderId);
         }
 
-        // Delete file function
+        // Delete file function (legacy - keep for backward compatibility)
         function deleteFile(fileId) {
-            if (confirm('Are you sure you want to delete this file?')) {
-                window.location.href = 'delete_file.php?id=' + fileId;
-            }
+            confirmDeleteFile(fileId);
         }
 
         // View file details
