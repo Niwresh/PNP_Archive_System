@@ -86,7 +86,7 @@ $current_folder = isset($_GET['folder']) ? (int)$_GET['folder'] : null;
 // Get filter parameters
 $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
 $year_filter = isset($_GET['year']) ? (int)$_GET['year'] : '';
-$month_filter = isset($_GET['month']) ? trim($_GET['month']) : '';
+$semester_filter = isset($_GET['semester']) ? $_GET['semester'] : '';
 
 // Handle folder creation
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_folder'])) {
@@ -344,7 +344,7 @@ function getFileCount($conn, $folder_id) {
 }
 
 // Get files in current folder with search and filters
-function getFilesInFolder($conn, $folder_id, $search_term = '', $year_filter = '', $month_filter = '') {
+function getFilesInFolder($conn, $folder_id, $search_term = '', $year_filter = '', $semester_filter = '') {
     $sql = "SELECT * FROM files WHERE folder_id " . ($folder_id ? "= ?" : "IS NULL");
     $params = [];
     $types = "";
@@ -361,11 +361,15 @@ function getFilesInFolder($conn, $folder_id, $search_term = '', $year_filter = '
         $types .= "i";
     }
     
-    // Add month filter
-    if (!empty($month_filter)) {
-        $sql .= " AND document_month = ?";
-        $params[] = $month_filter;
-        $types .= "s";
+    // Add semester filter based on month
+    if (!empty($semester_filter)) {
+        if ($semester_filter == 'first') {
+            // First Semester: January to June (months 1-6)
+            $sql .= " AND document_month BETWEEN 1 AND 6";
+        } elseif ($semester_filter == 'second') {
+            // Second Semester: July to December (months 7-12)
+            $sql .= " AND document_month BETWEEN 7 AND 12";
+        }
     }
     
     // Add search filter
@@ -437,7 +441,7 @@ $stmt->execute();
 $direct_folders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Get files in current directory with filters
-$files = getFilesInFolder($conn, $current_folder, $search_term, $year_filter, $month_filter);
+$files = getFilesInFolder($conn, $current_folder, $search_term, $year_filter, $semester_filter);
 
 // Get unique years for filter dropdown
 $available_years = getUniqueYears($conn);
@@ -485,7 +489,7 @@ function displayFolderTree($folders, $current_folder, $months) {
                     <span class="folder-expander-placeholder"></span>
                 <?php endif; ?>
                 
-                <a href="files.php?folder=<?php echo $folder['id']; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?>" class="folder-link">
+                <a href="files.php?folder=<?php echo $folder['id']; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?><?php echo !empty($semester_filter) ? '&semester='.$semester_filter : ''; ?>" class="folder-link">
                     <i class="fas fa-folder folder-icon"></i>
                     <span class="folder-name-text"><?php echo htmlspecialchars($folder['folder_name'] . $month_display); ?></span>
                     <?php if ($folder['file_count'] > 0): ?>
@@ -588,7 +592,7 @@ $months = getMonths();
             </div>
         </div>
 
-        <!-- Toolbar with Search and Year Filter -->
+        <!-- Toolbar with Search and Filters -->
         <div class="toolbar">
             <div class="toolbar-actions">
                 <button class="toolbar-btn btn-primary" onclick="openCreateFolderModal()">
@@ -624,21 +628,29 @@ $months = getMonths();
                         <?php endforeach; ?>
                     </select>
                 </div>
+
+                <div class="semester-filter">
+                    <select name="semester" id="semesterSelect">
+                        <option value="">All Semesters</option>
+                        <option value="first" <?php echo $semester_filter == 'first' ? 'selected' : ''; ?>>First Semester (Jan-Jun)</option>
+                        <option value="second" <?php echo $semester_filter == 'second' ? 'selected' : ''; ?>>Second Semester (Jul-Dec)</option>
+                    </select>
+                </div>
                 
                 <button type="submit" class="filter-btn">
                     <i class="fas fa-filter"></i> Apply Filters
                 </button>
                 
-                <?php if (!empty($search_term) || !empty($year_filter)): ?>
+                <?php if (!empty($search_term) || !empty($year_filter) || !empty($semester_filter)): ?>
                     <a href="files.php?folder=<?php echo $current_folder; ?>" class="clear-btn">
-                        <i class="fas fa-times"></i> Clear
+                        <i class="fas fa-times"></i> Clear All
                     </a>
                 <?php endif; ?>
             </form>
         </div>
 
         <!-- Active Filters Display -->
-        <?php if (!empty($search_term) || !empty($year_filter)): ?>
+        <?php if (!empty($search_term) || !empty($year_filter) || !empty($semester_filter)): ?>
             <div class="active-filters">
                 <i class="fas fa-filter" style="color: #0038a8;"></i>
                 <span style="color: #666;">Active Filters:</span>
@@ -646,14 +658,21 @@ $months = getMonths();
                 <?php if (!empty($search_term)): ?>
                     <span class="filter-tag">
                         <i class="fas fa-search"></i> "<?php echo htmlspecialchars($search_term); ?>"
-                        <a href="?folder=<?php echo $current_folder; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?>">×</a>
+                        <a href="?folder=<?php echo $current_folder; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?><?php echo !empty($semester_filter) ? '&semester='.$semester_filter : ''; ?>">×</a>
                     </span>
                 <?php endif; ?>
                 
                 <?php if (!empty($year_filter)): ?>
                     <span class="filter-tag">
                         <i class="fas fa-calendar"></i> Year: <?php echo $year_filter; ?>
-                        <a href="?folder=<?php echo $current_folder; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?>">×</a>
+                        <a href="?folder=<?php echo $current_folder; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?><?php echo !empty($semester_filter) ? '&semester='.$semester_filter : ''; ?>">×</a>
+                    </span>
+                <?php endif; ?>
+
+                <?php if (!empty($semester_filter)): ?>
+                    <span class="filter-tag">
+                        <i class="fas fa-calendar-alt"></i> Semester: <?php echo $semester_filter == 'first' ? 'First (Jan-Jun)' : 'Second (Jul-Dec)'; ?>
+                        <a href="?folder=<?php echo $current_folder; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?>">×</a>
                     </span>
                 <?php endif; ?>
             </div>
@@ -661,12 +680,12 @@ $months = getMonths();
 
         <!-- Breadcrumb Navigation -->
         <div class="breadcrumb">
-            <a href="files.php?<?php echo !empty($search_term) ? 'search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?>" class="breadcrumb-item <?php echo !$current_folder ? 'active' : ''; ?>">
+            <a href="files.php?<?php echo !empty($search_term) ? 'search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?><?php echo !empty($semester_filter) ? '&semester='.$semester_filter : ''; ?>" class="breadcrumb-item <?php echo !$current_folder ? 'active' : ''; ?>">
                 <i class="fas fa-home"></i> My Drive
             </a>
             <?php foreach ($folder_path as $index => $folder): ?>
                 <span class="breadcrumb-separator">/</span>
-                <a href="files.php?folder=<?php echo $folder['id']; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?>" 
+                <a href="files.php?folder=<?php echo $folder['id']; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?><?php echo !empty($semester_filter) ? '&semester='.$semester_filter : ''; ?>" 
                    class="breadcrumb-item <?php echo ($index == count($folder_path) - 1) ? 'active' : ''; ?>">
                     <?php echo htmlspecialchars($folder['name']); ?>
                 </a>
@@ -737,7 +756,7 @@ $months = getMonths();
                         <?php else: ?>
                             <div class="folders-grid">
                                 <?php foreach ($direct_folders as $folder): ?>
-                                    <div class="folder-card" onclick="window.location.href='files.php?folder=<?php echo $folder['id']; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?>'">
+                                    <div class="folder-card" onclick="window.location.href='files.php?folder=<?php echo $folder['id']; ?><?php echo !empty($search_term) ? '&search='.urlencode($search_term) : ''; ?><?php echo !empty($year_filter) ? '&year='.$year_filter : ''; ?><?php echo !empty($semester_filter) ? '&semester='.$semester_filter : ''; ?>'">
                                         <div class="folder-actions">
                                             <button class="folder-action-btn" onclick="event.stopPropagation(); openRenameFolderModal(<?php echo $folder['id']; ?>, '<?php echo htmlspecialchars($folder['folder_name']); ?>')">
                                                 <i class="fas fa-edit"></i>
@@ -781,8 +800,8 @@ $months = getMonths();
                             <div class="empty-folder">
                                 <i class="fas fa-file"></i>
                                 <h3>No files in this location</h3>
-                                <?php if (!empty($search_term) || !empty($year_filter)): ?>
-                                    <p>No files match your search criteria. <a href="?folder=<?php echo $current_folder; ?>">Clear filters</a></p>
+                                <?php if (!empty($search_term) || !empty($year_filter) || !empty($semester_filter)): ?>
+                                    <p>No files match your search criteria. <a href="?folder=<?php echo $current_folder; ?>">Clear all filters</a></p>
                                 <?php else: ?>
                                     <p>Click "Upload Files" to upload your first file</p>
                                 <?php endif; ?>
@@ -794,6 +813,7 @@ $months = getMonths();
                                         <th>Name</th>
                                         <th>Year</th>
                                         <th>Month</th>
+                                        <th>Semester</th>
                                         <th>Date</th>
                                         <th>Category</th>
                                         <th>Size</th>
@@ -802,6 +822,20 @@ $months = getMonths();
                                 </thead>
                                 <tbody>
                                     <?php foreach ($files as $file): ?>
+                                        <?php 
+                                        // Determine semester based on month
+                                        $semester = '';
+                                        $semester_class = '';
+                                        if (!empty($file['document_month'])) {
+                                            if ($file['document_month'] >= 1 && $file['document_month'] <= 6) {
+                                                $semester = 'First Sem';
+                                                $semester_class = 'first-sem-badge';
+                                            } elseif ($file['document_month'] >= 7 && $file['document_month'] <= 12) {
+                                                $semester = 'Second Sem';
+                                                $semester_class = 'second-sem-badge';
+                                            }
+                                        }
+                                        ?>
                                         <tr class="file-row">
                                             <td>
                                                 <div class="file-info">
@@ -818,6 +852,13 @@ $months = getMonths();
                                             <td>
                                                 <?php if (!empty($file['document_month'])): ?>
                                                     <span class="badge month-badge"><?php echo $months[$file['document_month']]; ?></span>
+                                                <?php else: ?>
+                                                    <span>-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if (!empty($semester)): ?>
+                                                    <span class="badge <?php echo $semester_class; ?>"><?php echo $semester; ?></span>
                                                 <?php else: ?>
                                                     <span>-</span>
                                                 <?php endif; ?>
@@ -994,6 +1035,53 @@ $months = getMonths();
             </form>
         </div>
     </div>
+
+    <style>
+        /* Additional styles for semester badges */
+        .first-sem-badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .second-sem-badge {
+            background: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .semester-filter {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .semester-filter select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .semester-filter select:focus {
+            outline: none;
+            border-color: #0038a8;
+        }
+
+        @media (max-width: 768px) {
+            .semester-filter {
+                width: 100%;
+            }
+        }
+    </style>
 
     <script>
         // Modal functions for Create Folder
@@ -1188,6 +1276,24 @@ $months = getMonths();
         // Add event listener for month selection change
         document.getElementById('document_month').addEventListener('change', populateDays);
 
+        // Auto-submit form when filters change
+        document.getElementById('yearSelect').addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
+
+        document.getElementById('semesterSelect').addEventListener('change', function() {
+            document.getElementById('filterForm').submit();
+        });
+
+        // Debounced search
+        let searchTimeout;
+        document.getElementById('searchInput').addEventListener('keyup', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                document.getElementById('filterForm').submit();
+            }, 500);
+        });
+
         // Close modals when clicking outside
         window.onclick = function(event) {
             const createModal = document.getElementById('createFolderModal');
@@ -1233,20 +1339,6 @@ $months = getMonths();
                 window.location.href = 'rename_folder.php?id=' + folderId + '&name=' + encodeURIComponent(newName);
             }
         }
-
-        // Auto-submit form when year changes
-        document.getElementById('yearSelect').addEventListener('change', function() {
-            document.getElementById('filterForm').submit();
-        });
-
-        // Debounced search
-        let searchTimeout;
-        document.getElementById('searchInput').addEventListener('keyup', function() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                document.getElementById('filterForm').submit();
-            }, 500);
-        });
 
         // Toggle subfolders in sidebar
         function toggleSubfolders(folderId) {
