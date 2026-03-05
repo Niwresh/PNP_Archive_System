@@ -838,3 +838,283 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #00267a;
 }
+
+/* ===== FLOATING ACTION BUTTON STYLES ===== */
+.fab-container {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.fab-main {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0038a8, #00267a);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 56, 168, 0.3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    color: white;
+    font-size: 24px;
+    position: relative;
+    z-index: 1000;
+}
+
+.fab-main:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 56, 168, 0.4);
+    background: linear-gradient(135deg, #00267a, #001a52);
+}
+
+.fab-main:active {
+    transform: scale(0.95);
+}
+
+.fab-main i {
+    transition: transform 0.3s ease;
+}
+
+.fab-main.active i {
+    transform: rotate(45deg);
+}
+
+.fab-options {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+
+.fab-options.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: all;
+}
+
+.fab-option {
+    background: white;
+    border: none;
+    border-radius: 40px;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    min-width: 160px;
+    animation: slideInRight 0.3s ease forwards;
+    opacity: 0;
+}
+
+.fab-options.active .fab-option {
+    opacity: 1;
+}
+
+.fab-options.active .fab-option:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.fab-options.active .fab-option:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.fab-option:hover {
+    transform: translateX(-5px);
+    box-shadow: 0 6px 20px rgba(0, 56, 168, 0.25);
+}
+
+.fab-option i {
+    font-size: 18px;
+}
+
+.fab-upload-file {
+    border-left: 4px solid #28a745;
+}
+
+.fab-upload-file i {
+    color: #28a745;
+}
+
+.fab-upload-file:hover {
+    background: #f0fff0;
+}
+
+.fab-create-folder {
+    border-left: 4px solid #ffc107;
+}
+
+.fab-create-folder i {
+    color: #ffc107;
+}
+
+.fab-create-folder:hover {
+    background: #fff9e6;
+}
+
+/* Tooltip for FAB options */
+.fab-option {
+    position: relative;
+}
+
+.fab-option::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -6px;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 6px 0 6px 6px;
+    border-color: transparent transparent transparent white;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.fab-option:hover::before {
+    opacity: 1;
+}
+
+/* Ripple effect for FAB */
+.fab-main {
+    position: relative;
+    overflow: hidden;
+}
+
+.fab-main::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.fab-main:active::after {
+    width: 100px;
+    height: 100px;
+}
+
+/* Responsive styles for FAB */
+@media (max-width: 768px) {
+    .fab-container {
+        bottom: 20px;
+        right: 20px;
+    }
+
+    .fab-main {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+
+    .fab-option {
+        padding: 10px 20px;
+        min-width: 140px;
+        font-size: 13px;
+    }
+
+    .fab-option i {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .fab-container {
+        bottom: 15px;
+        right: 15px;
+    }
+
+    .fab-main {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+
+    .fab-option {
+        padding: 8px 16px;
+        min-width: 130px;
+        font-size: 12px;
+    }
+
+    .fab-option i {
+        font-size: 14px;
+    }
+}
+
+/* Optional: Add a backdrop when FAB is open */
+.fab-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.fab-backdrop.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Animation for FAB icon */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 56, 168, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(0, 56, 168, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 56, 168, 0);
+    }
+}
+
+.fab-main {
+    animation: pulse 2s infinite;
+}
+
+.fab-main:hover {
+    animation: none;
+}
+

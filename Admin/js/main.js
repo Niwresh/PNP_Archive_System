@@ -247,6 +247,110 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+// Floating Action Button functions
+function toggleFabMenu() {
+    const fabOptions = document.getElementById('fabOptions');
+    const fabMain = document.getElementById('fabMain');
+    const fabIcon = document.getElementById('fabIcon');
+    
+    fabOptions.classList.toggle('active');
+    fabMain.classList.toggle('active');
+    
+    // Change icon based on state
+    if (fabMain.classList.contains('active')) {
+        fabIcon.classList.remove('fa-plus');
+        fabIcon.classList.add('fa-times');
+    } else {
+        fabIcon.classList.remove('fa-times');
+        fabIcon.classList.add('fa-plus');
+    }
+}
+
+// Close FAB menu when clicking outside
+document.addEventListener('click', function(event) {
+    const fabContainer = document.getElementById('fabContainer');
+    const fabOptions = document.getElementById('fabOptions');
+    const fabMain = document.getElementById('fabMain');
+    const fabIcon = document.getElementById('fabIcon');
+    
+    if (!fabContainer.contains(event.target) && fabOptions.classList.contains('active')) {
+        fabOptions.classList.remove('active');
+        fabMain.classList.remove('active');
+        fabIcon.classList.remove('fa-times');
+        fabIcon.classList.add('fa-plus');
+    }
+});
+
+// Close FAB menu when ESC key is pressed
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const fabOptions = document.getElementById('fabOptions');
+        const fabMain = document.getElementById('fabMain');
+        const fabIcon = document.getElementById('fabIcon');
+        
+        if (fabOptions.classList.contains('active')) {
+            fabOptions.classList.remove('active');
+            fabMain.classList.remove('active');
+            fabIcon.classList.remove('fa-times');
+            fabIcon.classList.add('fa-plus');
+        }
+    }
+});
+
+// Update your existing modal functions to close FAB when opening modals
+function openCreateFolderModal() {
+    document.getElementById('createFolderModal').classList.add('active');
+    // Close FAB menu
+    const fabOptions = document.getElementById('fabOptions');
+    const fabMain = document.getElementById('fabMain');
+    const fabIcon = document.getElementById('fabIcon');
+    
+    fabOptions.classList.remove('active');
+    fabMain.classList.remove('active');
+    fabIcon.classList.remove('fa-times');
+    fabIcon.classList.add('fa-plus');
+}
+
+function openUploadFileModal() {
+    document.getElementById('uploadFileModal').classList.add('active');
+    // Close FAB menu
+    const fabOptions = document.getElementById('fabOptions');
+    const fabMain = document.getElementById('fabMain');
+    const fabIcon = document.getElementById('fabIcon');
+    
+    fabOptions.classList.remove('active');
+    fabMain.classList.remove('active');
+    fabIcon.classList.remove('fa-times');
+    fabIcon.classList.add('fa-plus');
+}
+
+// Optional: Add touch support for mobile
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+}, false);
+
+document.addEventListener('touchend', function(e) {
+    const touchEndX = e.changedTouches[0].screenX;
+    const touchEndY = e.changedTouches[0].screenY;
+    const fabContainer = document.getElementById('fabContainer');
+    
+    if (!fabContainer.contains(e.target)) {
+        const fabOptions = document.getElementById('fabOptions');
+        const fabMain = document.getElementById('fabMain');
+        const fabIcon = document.getElementById('fabIcon');
+        
+        if (fabOptions.classList.contains('active')) {
+            fabOptions.classList.remove('active');
+            fabMain.classList.remove('active');
+            fabIcon.classList.remove('fa-times');
+            fabIcon.classList.add('fa-plus');
+        }
+    }
+}, false);
 
 // Add CSS for loading state and ripple effect
 const style = document.createElement('style');
@@ -285,6 +389,7 @@ style.textContent = `
     .remember-me label:hover {
         color: #0038a8;
     }
+        
 `;
 
 document.head.appendChild(style);
