@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_folder'])) {
     }
 }
 
-// AJAX handler to get parent folder details
+// AJAX handler to get parent folder details for folder creation
 if (isset($_GET['ajax']) && $_GET['ajax'] == 'get_parent_details' && isset($_GET['parent_id'])) {
     header('Content-Type: application/json');
     $parent_id = (int)$_GET['parent_id'];
@@ -71,14 +71,115 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 'get_parent_details' && isset($_GET
     exit();
 }
 
+// AJAX handler to get folder details for file upload (only year is inherited)
+if (isset($_GET['ajax']) && $_GET['ajax'] == 'get_folder_details' && isset($_GET['folder_id'])) {
+    header('Content-Type: application/json');
+    $folder_id = (int)$_GET['folder_id'];
+    
+    // Get folder details including its parent's year if needed
+    $stmt = $conn->prepare("
+        SELECT f.*, 
+               p.folder_year as parent_year,
+               p.folder_name as parent_name
+        FROM folders f
+        LEFT JOIN folders p ON f.parent_id = p.id
+        WHERE f.id = ?
+    ");
+    $stmt->bind_param("i", $folder_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $folder = $result->fetch_assoc();
+    
+    if ($folder) {
+        // Determine the effective year (from parent if subfolder, from itself if main folder)
+        if ($folder['parent_id']) {
+            // This is a subfolder - get year from parent
+            $effective_year = $folder['parent_year'];
+        } else {
+            // This is a main folder - use its own year
+            $effective_year = $folder['folder_year'];
+        }
+        
+        $response = [
+            'success' => true, 
+            'data' => [
+                'folder_name' => $folder['folder_name'],
+                'folder_year' => $effective_year,
+                'is_subfolder' => !empty($folder['parent_id']),
+                'parent_name' => $folder['parent_name']
+            ]
+        ];
+        echo json_encode($response);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Folder not found']);
+    }
+    exit();
+}
+
 // Handle file upload
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_file'])) {
     $folder_id = !empty($_POST['folder_id']) ? (int)$_POST['folder_id'] : null;
     $document_name = trim($_POST['document_name']);
     $description = trim($_POST['description']);
-    $document_year = (int)$_POST['document_year'];
+    $document_year = null;
+    
+    // Get folder details for year inheritance
+    if ($folder_id) {
+        // Check if this is a subfolder or main folder
+        $stmt = $conn->prepare("
+            SELECT f.*, 
+                   p.folder_year as parent_year
+            FROM folders f
+            LEFT JOIN folders p ON f.parent_id = p.id
+            WHERE f.id = ?
+        ");
+        $stmt->bind_param("i", $folder_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $folder = $result->fetch_assoc();
+        
+        if ($folder) {
+            if ($folder['parent_id']) {
+                // This is a subfolder - get year from parent (main folder)
+                $document_year = $folder['parent_year'];
+            } else {
+                // This is a main folder - use its own year
+                $document_year = $folder['folder_year'];
+            }
+        }
+    } else {
+        // If at root, use submitted year
+        $document_year = (int)$_POST['document_year'];
+    }
+    
+    // Get month and day from form (user selected)
+    $document_month = !empty($_POST['document_month']) ? $_POST['document_month'] : null;
+    $document_date = !empty($_POST['document_date']) ? $_POST['document_date'] : null;
+    
+    // Validate date if provided
+    if ($document_date && $document_year && $document_month) {
+        $date_parts = explode('-', $document_date);
+        if (count($date_parts) == 3) {
+            $date_year = $date_parts[0];
+            $date_month = $date_parts[1];
+            
+            // Check if date year matches inherited year
+            if ($date_year != $document_year) {
+                $_SESSION['error'] = "The selected date year ($date_year) must match the folder year ($document_year)";
+                header("Location: files.php?folder=" . ($folder_id ?: '') . "&error=Date year mismatch");
+                exit();
+            }
+            
+            // Check if date month matches selected month
+            if ($date_month != $document_month) {
+                $_SESSION['error'] = "The selected date month must match the selected month";
+                header("Location: files.php?folder=" . ($folder_id ?: '') . "&error=Date month mismatch");
+                exit();
+            }
+        }
+    }
+    
     $document_category = trim($_POST['document_category']);
-    $tags = trim($_POST['tags']);
     
     if (isset($_FILES['file']) && $_FILES['file']['error'] == 0) {
         $file = $_FILES['file'];
@@ -95,8 +196,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_file'])) {
         $upload_path = $upload_dir . $new_filename;
         
         if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-            $stmt = $conn->prepare("INSERT INTO files (folder_id, file_name, original_name, file_path, file_size, file_type, document_name, description, document_year, document_category, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("isssisssiss", 
+            $stmt = $conn->prepare("INSERT INTO files (folder_id, file_name, original_name, file_path, file_size, file_type, document_name, description, document_year, document_month, document_date, document_category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("isssisssssss", 
                 $folder_id, 
                 $new_filename, 
                 $file['name'], 
@@ -106,8 +207,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_file'])) {
                 $document_name, 
                 $description, 
                 $document_year, 
-                $document_category, 
-                $tags
+                $document_month,
+                $document_date,
+                $document_category
             );
             
             if ($stmt->execute()) {
@@ -171,7 +273,7 @@ function getFileCount($conn, $folder_id) {
     return $result['count'];
 }
 
-// Get files in current folder with search and year filter
+// Get files in current folder with search and filters
 function getFilesInFolder($conn, $folder_id, $search_term = '', $year_filter = '', $month_filter = '') {
     $sql = "SELECT * FROM files WHERE folder_id " . ($folder_id ? "= ?" : "IS NULL");
     $params = [];
@@ -189,25 +291,23 @@ function getFilesInFolder($conn, $folder_id, $search_term = '', $year_filter = '
         $types .= "i";
     }
     
-    // Add month filter for files (if you add month to files table)
+    // Add month filter
     if (!empty($month_filter)) {
-        $sql .= " AND MONTH(uploaded_at) = ?"; // This assumes you want to filter by upload month
+        $sql .= " AND document_month = ?";
         $params[] = $month_filter;
-        $types .= "i";
+        $types .= "s";
     }
     
     // Add search filter
     if (!empty($search_term)) {
-        $sql .= " AND (document_name LIKE ? OR description LIKE ? OR tags LIKE ? OR original_name LIKE ?)";
+        $sql .= " AND (document_name LIKE ? OR description LIKE ?)";
         $search_param = "%$search_term%";
         $params[] = $search_param;
         $params[] = $search_param;
-        $params[] = $search_param;
-        $params[] = $search_param;
-        $types .= "ssss";
+        $types .= "ss";
     }
     
-    $sql .= " ORDER BY uploaded_at DESC";
+    $sql .= " ORDER BY document_year DESC, document_month, document_date DESC, uploaded_at DESC";
     
     $stmt = $conn->prepare($sql);
     if (!empty($params)) {
@@ -239,6 +339,20 @@ function getMonths() {
         '11' => 'November',
         '12' => 'December'
     ];
+}
+
+// Get days in month
+function getDaysInMonth($month, $year) {
+    if ($month && $year) {
+        return cal_days_in_month(CAL_GREGORIAN, (int)$month, (int)$year);
+    }
+    return 31;
+}
+
+// Format date for display
+function formatDate($date) {
+    if (empty($date)) return '';
+    return date('M d, Y', strtotime($date));
 }
 
 // Get current folder details
@@ -338,490 +452,6 @@ $months = getMonths();
     <title>File Archive - Philippine National</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/files.css">
-    <style>
-        /* Additional styles for hierarchical display and collapsible sections */
-        
-        /* ===== FOLDER TREE STYLES ===== */
-        .folder-tree {
-            list-style: none;
-            padding: 0;
-        }
-
-        .folder-tree-item {
-            list-style: none;
-            margin: 2px 0;
-        }
-
-        .folder-item {
-            display: flex;
-            align-items: center;
-            padding: 8px;
-            border-radius: 5px;
-            transition: all 0.3s;
-            background: transparent;
-        }
-
-        .folder-item:hover {
-            background: #e3f2fd;
-        }
-
-        .folder-item.active {
-            background: #bbdefb;
-            border-left: 3px solid #0038a8;
-        }
-
-        .folder-expander {
-            width: 24px;
-            height: 24px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #666;
-            transition: all 0.3s;
-            margin-right: 5px;
-        }
-
-        .folder-expander:hover {
-            color: #0038a8;
-            transform: scale(1.1);
-        }
-
-        .folder-expander i {
-            font-size: 12px;
-            transition: transform 0.3s;
-        }
-
-        .folder-expander.expanded i {
-            transform: rotate(90deg);
-        }
-
-        .folder-expander-placeholder {
-            width: 24px;
-            margin-right: 5px;
-        }
-
-        .folder-link {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-            color: #333;
-            flex: 1;
-        }
-
-        .folder-icon {
-            color: #ffc107;
-            font-size: 1.1rem;
-        }
-
-        .folder-name-text {
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .file-count-badge {
-            background: #0038a8;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 12px;
-            font-size: 11px;
-            margin-left: 8px;
-        }
-
-        .subfolder-list {
-            list-style: none;
-            padding-left: 24px;
-            margin: 2px 0;
-        }
-
-        /* ===== COLLAPSIBLE SECTIONS STYLES ===== */
-        .collapsible-section {
-            margin-bottom: 20px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
-            background: white;
-        }
-
-        .section-header {
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            padding: 15px 20px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s ease;
-            border-bottom: 2px solid #0038a8;
-        }
-
-        .section-header:hover {
-            background: linear-gradient(135deg, #e9ecef, #dee2e6);
-        }
-
-        .section-header h2 {
-            color: #0038a8;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.2rem;
-            margin: 0;
-        }
-
-        .section-header .toggle-icon {
-            font-size: 1.2rem;
-            color: #0038a8;
-            transition: transform 0.3s ease;
-        }
-
-        .section-header.collapsed .toggle-icon {
-            transform: rotate(-90deg);
-        }
-
-        .section-content {
-            transition: max-height 0.3s ease-out, padding 0.3s ease;
-            overflow: hidden;
-            background: white;
-        }
-
-        .section-content.collapsed {
-            max-height: 0;
-            padding: 0 20px;
-        }
-
-        .section-content.expanded {
-            max-height: 2000px;
-            padding: 20px;
-        }
-
-        /* ===== BREADCRUMB STYLES ===== */
-        .breadcrumb {
-            background: white;
-            padding: 1rem;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .breadcrumb-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            color: #666;
-            text-decoration: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            transition: all 0.3s;
-        }
-
-        .breadcrumb-item:hover {
-            background: #f0f2f5;
-            color: #0038a8;
-        }
-
-        .breadcrumb-item.active {
-            color: #0038a8;
-            font-weight: 600;
-            background: #e3f2fd;
-        }
-
-        .breadcrumb-separator {
-            color: #ccc;
-        }
-
-        /* ===== CURRENT FOLDER INFO ===== */
-        .current-folder-info {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .folder-icon-large {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #ffc107, #ffb300);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.8rem;
-        }
-
-        .folder-details h2 {
-            color: #0038a8;
-            margin-bottom: 5px;
-        }
-
-        .folder-details p {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .folder-stats {
-            display: flex;
-            gap: 20px;
-            margin-top: 10px;
-            flex-wrap: wrap;
-        }
-
-        .folder-stat {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            color: #666;
-            font-size: 13px;
-        }
-
-        /* ===== FILTER BAR STYLES ===== */
-        .filter-bar {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .search-box {
-            flex: 2;
-            min-width: 200px;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
-        .search-box input:focus {
-            outline: none;
-            border-color: #0038a8;
-            box-shadow: 0 0 0 3px rgba(0,56,168,0.1);
-        }
-
-        .year-filter {
-            flex: 1;
-            min-width: 150px;
-        }
-
-        .year-filter select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            background: white;
-            cursor: pointer;
-        }
-
-        .year-filter select:focus {
-            outline: none;
-            border-color: #0038a8;
-        }
-
-        .filter-btn {
-            padding: 10px 20px;
-            background: #0038a8;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .filter-btn:hover {
-            background: #00267a;
-            transform: translateY(-2px);
-        }
-
-        .clear-btn {
-            padding: 10px 20px;
-            background: #6c757d;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .clear-btn:hover {
-            background: #5a6268;
-        }
-
-        .active-filters {
-            margin-top: 10px;
-            padding: 10px;
-            background: #e3f2fd;
-            border-radius: 5px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .filter-tag {
-            background: #0038a8;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .filter-tag a {
-            color: white;
-            text-decoration: none;
-            font-weight: bold;
-            margin-left: 5px;
-        }
-
-        .filter-tag a:hover {
-            color: #ffc107;
-        }
-
-        /* ===== PARENT FOLDER INFO IN MODAL ===== */
-        .parent-folder-info {
-            background: #f8f9fa;
-            padding: 10px 15px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            border-left: 3px solid #0038a8;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .parent-folder-info i {
-            color: #0038a8;
-        }
-
-        .parent-folder-info strong {
-            color: #0038a8;
-        }
-
-        /* ===== MONTH SELECTION STYLES ===== */
-        .month-select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            background: white;
-            cursor: pointer;
-        }
-
-        .month-select:focus {
-            outline: none;
-            border-color: #0038a8;
-        }
-
-        .month-badge {
-            background: #28a745;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            margin-left: 5px;
-        }
-
-        /* ===== EMPTY STATE ===== */
-        .empty-folder {
-            text-align: center;
-            padding: 3rem;
-            background: #f8f9fa;
-            border-radius: 10px;
-            margin: 0;
-        }
-
-        .empty-folder i {
-            font-size: 4rem;
-            color: #dee2e6;
-            margin-bottom: 1rem;
-        }
-
-        .empty-folder h3 {
-            color: #666;
-            margin-bottom: 0.5rem;
-        }
-
-        .empty-folder p {
-            color: #999;
-        }
-
-        /* ===== ANIMATIONS ===== */
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .section-content.expanded .folders-grid,
-        .section-content.expanded .files-table {
-            animation: slideDown 0.3s ease;
-        }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 768px) {
-            .folder-item {
-                padding: 6px;
-            }
-            
-            .folder-name-text {
-                font-size: 13px;
-            }
-            
-            .subfolder-list {
-                padding-left: 15px;
-            }
-
-            .folder-stats {
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .section-header h2 {
-                font-size: 1rem;
-            }
-
-            .filter-bar {
-                flex-direction: column;
-                width: 100%;
-            }
-
-            .search-box,
-            .year-filter {
-                width: 100%;
-            }
-
-            .filter-btn,
-            .clear-btn {
-                width: 100%;
-                justify-content: center;
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -841,11 +471,18 @@ $months = getMonths();
     </nav>
 
     <div class="container">
-        <!-- Success Message -->
+        <!-- Success/Error Messages -->
         <?php if (isset($_GET['success'])): ?>
             <div class="success-message">
                 <i class="fas fa-check-circle"></i>
                 <?php echo htmlspecialchars($_GET['success']); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_GET['error'])): ?>
+            <div class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                <?php echo htmlspecialchars($_GET['error']); ?>
             </div>
         <?php endif; ?>
 
@@ -908,7 +545,7 @@ $months = getMonths();
                         type="text" 
                         name="search" 
                         id="searchInput" 
-                        placeholder="Search by name, description, or tags..." 
+                        placeholder="Search by name or description..." 
                         value="<?php echo htmlspecialchars($search_term); ?>"
                         autocomplete="off"
                     >
@@ -1083,20 +720,21 @@ $months = getMonths();
                                 <i class="fas fa-file"></i>
                                 <h3>No files in this location</h3>
                                 <?php if (!empty($search_term) || !empty($year_filter)): ?>
-                                    <p>No files match your search criteria. <a href="?folder=<?php echo $current_folder; ?>" style="color: #0038a8;">Clear filters</a></p>
+                                    <p>No files match your search criteria. <a href="?folder=<?php echo $current_folder; ?>">Clear filters</a></p>
                                 <?php else: ?>
                                     <p>Click "Upload Files" to upload your first file</p>
                                 <?php endif; ?>
                             </div>
                         <?php else: ?>
-                            <table class="files-table" id="filesTable">
+                            <table class="files-table">
                                 <thead>
                                     <tr>
                                         <th>Name</th>
                                         <th>Year</th>
+                                        <th>Month</th>
+                                        <th>Date</th>
                                         <th>Category</th>
                                         <th>Size</th>
-                                        <th>Uploaded</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -1116,6 +754,20 @@ $months = getMonths();
                                             </td>
                                             <td><span class="badge badge-year"><?php echo $file['document_year']; ?></span></td>
                                             <td>
+                                                <?php if (!empty($file['document_month'])): ?>
+                                                    <span class="badge month-badge"><?php echo $months[$file['document_month']]; ?></span>
+                                                <?php else: ?>
+                                                    <span>-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if (!empty($file['document_date'])): ?>
+                                                    <span class="badge date-badge"><?php echo formatDate($file['document_date']); ?></span>
+                                                <?php else: ?>
+                                                    <span>-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
                                                 <?php if (!empty($file['document_category'])): ?>
                                                     <span class="badge badge-category"><?php echo htmlspecialchars($file['document_category']); ?></span>
                                                 <?php else: ?>
@@ -1123,7 +775,6 @@ $months = getMonths();
                                                 <?php endif; ?>
                                             </td>
                                             <td><?php echo formatFileSize($file['file_size']); ?></td>
-                                            <td><?php echo date('M d, Y', strtotime($file['uploaded_at'])); ?></td>
                                             <td>
                                                 <div class="action-buttons">
                                                     <a href="download.php?id=<?php echo $file['id']; ?>" class="action-btn btn-download" title="Download">
@@ -1214,9 +865,15 @@ $months = getMonths();
                 <h3><i class="fas fa-cloud-upload-alt"></i> Upload Files</h3>
                 <button class="modal-close" onclick="closeUploadFileModal()">&times;</button>
             </div>
-            <form method="POST" action="" enctype="multipart/form-data">
+            <form method="POST" action="" enctype="multipart/form-data" id="uploadFileForm">
                 <div class="modal-body">
-                    <input type="hidden" name="folder_id" value="<?php echo $current_folder; ?>">
+                    <input type="hidden" name="folder_id" id="upload_folder_id" value="<?php echo $current_folder; ?>">
+                    
+                    <!-- Folder Info (will be shown via JavaScript) -->
+                    <div id="folderInfo" class="folder-info" style="display: none;">
+                        <i class="fas fa-info-circle"></i>
+                        <span id="folderMessage"></span>
+                    </div>
 
                     <div class="form-group">
                         <label for="file">Select File *</label>
@@ -1233,24 +890,39 @@ $months = getMonths();
                         <textarea id="file_description" name="description" placeholder="Enter file description"></textarea>
                     </div>
 
+                    <div class="form-group" id="fileYearGroup">
+                        <label for="document_year">Year (Inherited from Folder)</label>
+                        <input type="text" id="document_year_display" class="form-control" readonly disabled>
+                        <input type="hidden" id="document_year" name="document_year">
+                        <small id="fileYearHelpText" style="color: #666; display: block; margin-top: 5px;"></small>
+                    </div>
+
                     <div class="form-group">
-                        <label for="document_year">Year *</label>
-                        <select id="document_year" name="document_year" required>
-                            <option value="">Select Year</option>
-                            <?php for ($year = date('Y'); $year >= 1900; $year--): ?>
-                                <option value="<?php echo $year; ?>"><?php echo $year; ?></option>
-                            <?php endfor; ?>
+                        <label for="document_month">Month</label>
+                        <select id="document_month" name="document_month" class="month-select">
+                            <option value="">Select Month</option>
+                            <?php foreach ($months as $num => $name): ?>
+                                <option value="<?php echo $num; ?>"><?php echo $name; ?></option>
+                            <?php endforeach; ?>
                         </select>
+                        <small style="color: #666; display: block; margin-top: 5px;">
+                            Select the month for this document
+                        </small>
+                    </div>
+
+                    <div class="form-group" id="dateGroup" style="display: none;">
+                        <label for="document_date">Select Day</label>
+                        <select id="document_date" name="document_date" class="date-select">
+                            <option value="">Select Day</option>
+                        </select>
+                        <small style="color: #666; display: block; margin-top: 5px;">
+                            Choose the specific day of the month for this document
+                        </small>
                     </div>
 
                     <div class="form-group">
                         <label for="document_category">Category</label>
                         <input type="text" id="document_category" name="document_category" placeholder="e.g., Financial, Legal, Personal">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="tags">Tags</label>
-                        <input type="text" id="tags" name="tags" placeholder="Enter tags separated by commas">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1328,14 +1000,118 @@ $months = getMonths();
                 });
         }
 
+        // Function to populate days in month based on selected month and year
+        function populateDays() {
+            const monthSelect = document.getElementById('document_month');
+            const yearInput = document.getElementById('document_year');
+            const daySelect = document.getElementById('document_date');
+            const dateGroup = document.getElementById('dateGroup');
+            
+            const month = monthSelect.value;
+            const year = yearInput.value;
+            
+            if (month && year) {
+                // Get days in month
+                const daysInMonth = new Date(year, month, 0).getDate();
+                
+                // Clear and populate days
+                daySelect.innerHTML = '<option value="">Select Day</option>';
+                
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const day = i.toString().padStart(2, '0');
+                    const dateValue = `${year}-${month.toString().padStart(2, '0')}-${day}`;
+                    const option = document.createElement('option');
+                    option.value = dateValue;
+                    option.textContent = `${year}-${month.toString().padStart(2, '0')}-${day}`;
+                    daySelect.appendChild(option);
+                }
+                
+                // Show date group
+                dateGroup.style.display = 'block';
+            } else {
+                // Hide date group if no month selected
+                dateGroup.style.display = 'none';
+                daySelect.innerHTML = '<option value="">Select Day</option>';
+            }
+        }
+
         // Modal functions for Upload File
         function openUploadFileModal() {
-            document.getElementById('uploadFileModal').classList.add('active');
+            const modal = document.getElementById('uploadFileModal');
+            modal.classList.add('active');
+            
+            // Get folder ID
+            const folderId = document.getElementById('upload_folder_id').value;
+            
+            // Reset form
+            document.getElementById('uploadFileForm').reset();
+            document.getElementById('folderInfo').style.display = 'none';
+            document.getElementById('fileYearGroup').style.display = 'block';
+            document.getElementById('dateGroup').style.display = 'none';
+            
+            // Clear selects
+            const monthSelect = document.getElementById('document_month');
+            monthSelect.value = '';
+            
+            const daySelect = document.getElementById('document_date');
+            daySelect.innerHTML = '<option value="">Select Day</option>';
+            
+            // If we're in a folder, fetch folder details
+            if (folderId) {
+                fetchFolderDetails(folderId);
+            }
         }
 
         function closeUploadFileModal() {
             document.getElementById('uploadFileModal').classList.remove('active');
+            // Reset form
+            document.getElementById('uploadFileForm').reset();
+            document.getElementById('folderInfo').style.display = 'none';
+            document.getElementById('fileYearGroup').style.display = 'block';
+            document.getElementById('dateGroup').style.display = 'none';
         }
+
+        // Fetch folder details for file upload via AJAX
+        function fetchFolderDetails(folderId) {
+            fetch(`files.php?ajax=get_folder_details&folder_id=${folderId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const folder = data.data;
+                        const folderInfo = document.getElementById('folderInfo');
+                        const folderMessage = document.getElementById('folderMessage');
+                        const yearDisplay = document.getElementById('document_year_display');
+                        const yearHidden = document.getElementById('document_year');
+                        
+                        // Show folder info
+                        let message = `Uploading to folder: <strong>${folder.folder_name}</strong>`;
+                        if (folder.is_subfolder) {
+                            message += ` (Subfolder under ${folder.parent_name})`;
+                        }
+                        folderMessage.innerHTML = message;
+                        folderInfo.style.display = 'flex';
+                        
+                        // Set year (always inherited)
+                        yearDisplay.value = folder.folder_year;
+                        yearHidden.value = folder.folder_year;
+                        
+                        // Add helpful message based on folder type
+                        if (folder.is_subfolder) {
+                            document.getElementById('fileYearHelpText').textContent = 
+                                `Year ${folder.folder_year} is inherited from the main folder`;
+                        } else {
+                            document.getElementById('fileYearHelpText').textContent = 
+                                `Year ${folder.folder_year} is set from this folder`;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching folder details:', error);
+                });
+        }
+
+        // Add event listener for month selection change
+        document.getElementById('document_month').addEventListener('change', populateDays);
 
         // Close modals when clicking outside
         window.onclick = function(event) {
@@ -1352,6 +1128,11 @@ $months = getMonths();
             }
             if (event.target == uploadModal) {
                 uploadModal.classList.remove('active');
+                // Reset form when closing
+                document.getElementById('uploadFileForm').reset();
+                document.getElementById('folderInfo').style.display = 'none';
+                document.getElementById('fileYearGroup').style.display = 'block';
+                document.getElementById('dateGroup').style.display = 'none';
             }
         }
 
