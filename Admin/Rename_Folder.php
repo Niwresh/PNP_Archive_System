@@ -41,6 +41,6 @@ if ($stmt->execute()) {
     $_SESSION['error'] = "Error renaming folder.";
 }
 
-header("Location: files.php?folder_id=" . $old_folder['parent_id']);
+header("Location: homepage.php?folder_id=" . $old_folder['parent_id']);
 exit();
 ?>

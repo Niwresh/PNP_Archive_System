@@ -41,7 +41,7 @@ if (!isset($_FILES['file']) || $_FILES['file']['error'] != UPLOAD_ERR_OK) {
             $error_message .= "Unknown upload error";
     }
     $_SESSION['error'] = $error_message;
-    header("Location: files.php" . ($folder_id ? "?folder_id=" . $folder_id : ""));
+    header("Location: homepage.php" . ($folder_id ? "?folder_id=" . $folder_id : ""));
     exit();
 }
 
@@ -84,7 +84,7 @@ if ($folder_id) {
         $upload_dir = $base_path . $folder['folder_name'] . "/";
     } else {
         $_SESSION['error'] = "Selected folder not found.";
-        header("Location: files.php");
+        header("Location: homepage.php");
         exit();
     }
 } else {
@@ -138,7 +138,7 @@ if (move_uploaded_file($file_tmp, $file_path)) {
 }
 
 // Redirect back
-$redirect = "files.php";
+$redirect = "homepage.php";
 if ($folder_id) {
     $redirect .= "?folder_id=" . $folder_id;
 }

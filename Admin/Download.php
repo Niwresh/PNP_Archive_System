@@ -23,6 +23,6 @@ if ($file && file_exists($file['file_path'])) {
     exit;
 }
 
-header("Location: files.php?error=File not found");
+header("Location: homepage.php?error=File not found");
 exit();
 ?>

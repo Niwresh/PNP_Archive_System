@@ -64,7 +64,7 @@ if ($stmt->execute()) {
     $_SESSION['error'] = "Error creating folder: " . $conn->error;
 }
 
-$redirect = "files.php";
+$redirect = "homepage.php";
 if ($parent_id) {
     $redirect .= "?folder_id=" . $parent_id;
 }
