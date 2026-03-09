@@ -1,21 +1,46 @@
 <?php
 session_start();
-require_once 'PNP_Archive.php';
+require_once "PNP_Archive.php";
 
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header('Location: login.php');
+if (!isset($_SESSION['admin_logged_in'])) {
+    header("Location: login.php");
     exit();
 }
 
-$folder_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-$new_name = isset($_GET['name']) ? trim($_GET['name']) : '';
+$id = intval($_GET['id']);
+$new_name = $_GET['name'];
 
-if ($folder_id && !empty($new_name)) {
-    $stmt = $conn->prepare("UPDATE folders SET folder_name = ? WHERE id = ?");
-    $stmt->bind_param("si", $new_name, $folder_id);
-    $stmt->execute();
+// Get old folder info
+$folder_query = $conn->query("SELECT * FROM folders WHERE id = $id");
+$old_folder = $folder_query->fetch_assoc();
+
+// Update database
+$sql = "UPDATE folders SET folder_name = ? WHERE id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("si", $new_name, $id);
+
+if ($stmt->execute()) {
+    // Rename physical folder
+    $path = getFolderPath($id, $conn);
+    array_pop($path); // Remove current folder from path
+    
+    $physical_path = "uploads/";
+    foreach ($path as $p) {
+        $physical_path .= $p['folder_name'] . "/";
+    }
+    
+    $old_path = $physical_path . $old_folder['folder_name'];
+    $new_path = $physical_path . $new_name;
+    
+    if (file_exists($old_path)) {
+        rename($old_path, $new_path);
+    }
+    
+    $_SESSION['success'] = "Folder renamed successfully!";
+} else {
+    $_SESSION['error'] = "Error renaming folder.";
 }
 
-header("Location: files.php?success=Folder renamed successfully");
+header("Location: files.php?folder_id=" . $old_folder['parent_id']);
 exit();
 ?>
