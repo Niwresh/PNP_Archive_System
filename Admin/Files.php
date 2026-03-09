@@ -592,17 +592,8 @@ $months = getMonths();
             </div>
         </div>
 
-        <!-- Toolbar with Search and Filters -->
+        <!-- Toolbar with Search and Filters (without action buttons) -->
         <div class="toolbar">
-            <div class="toolbar-actions">
-                <button class="toolbar-btn btn-primary" onclick="openCreateFolderModal()">
-                    <i class="fas fa-folder-plus"></i> Create Folder
-                </button>
-                <button class="toolbar-btn btn-success" onclick="openUploadFileModal()">
-                    <i class="fas fa-cloud-upload-alt"></i> Upload Files
-                </button>
-            </div>
-            
             <form method="GET" action="" class="filter-bar" id="filterForm">
                 <input type="hidden" name="folder" value="<?php echo $current_folder; ?>">
                 
@@ -751,7 +742,7 @@ $months = getMonths();
                             <div class="empty-folder">
                                 <i class="fas fa-folder-open"></i>
                                 <h3>No subfolders in this location</h3>
-                                <p>Click "Create Folder" to create a new folder</p>
+                                <p>Click the + button below to create a new folder</p>
                             </div>
                         <?php else: ?>
                             <div class="folders-grid">
@@ -803,7 +794,7 @@ $months = getMonths();
                                 <?php if (!empty($search_term) || !empty($year_filter) || !empty($semester_filter)): ?>
                                     <p>No files match your search criteria. <a href="?folder=<?php echo $current_folder; ?>">Clear all filters</a></p>
                                 <?php else: ?>
-                                    <p>Click "Upload Files" to upload your first file</p>
+                                    <p>Click the + button below to upload your first file</p>
                                 <?php endif; ?>
                             </div>
                         <?php else: ?>
@@ -900,6 +891,24 @@ $months = getMonths();
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <div class="fab-container">
+        <div class="fab-backdrop" id="fabBackdrop" onclick="toggleFab()"></div>
+        <div class="fab-options" id="fabOptions">
+            <button class="fab-option fab-upload-file" onclick="openUploadFileModal()">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <span>Upload Files</span>
+            </button>
+            <button class="fab-option fab-create-folder" onclick="openCreateFolderModal()">
+                <i class="fas fa-folder-plus"></i>
+                <span>Create Folder</span>
+            </button>
+        </div>
+        <button class="fab-main" id="fabMain" onclick="toggleFab()">
+            <i class="fas fa-plus"></i>
+        </button>
     </div>
 
     <!-- Create Folder Modal -->
@@ -1036,58 +1045,46 @@ $months = getMonths();
         </div>
     </div>
 
-    <style>
-        /* Additional styles for semester badges */
-        .first-sem-badge {
-            background: #28a745;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        
-        .second-sem-badge {
-            background: #dc3545;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .semester-filter {
-            flex: 1;
-            min-width: 150px;
-        }
-
-        .semester-filter select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            background: white;
-            cursor: pointer;
-        }
-
-        .semester-filter select:focus {
-            outline: none;
-            border-color: #0038a8;
-        }
-
-        @media (max-width: 768px) {
-            .semester-filter {
-                width: 100%;
-            }
-        }
-    </style>
-
     <script>
+        // FAB Toggle Function
+        function toggleFab() {
+            const fabMain = document.getElementById('fabMain');
+            const fabOptions = document.getElementById('fabOptions');
+            const fabBackdrop = document.getElementById('fabBackdrop');
+            
+            fabMain.classList.toggle('active');
+            fabOptions.classList.toggle('active');
+            fabBackdrop.classList.toggle('active');
+        }
+
+        // Close FAB when clicking outside
+        document.addEventListener('click', function(event) {
+            const fabContainer = document.querySelector('.fab-container');
+            const fabBackdrop = document.getElementById('fabBackdrop');
+            const fabOptions = document.getElementById('fabOptions');
+            const fabMain = document.getElementById('fabMain');
+            
+            if (!fabContainer.contains(event.target)) {
+                fabMain.classList.remove('active');
+                fabOptions.classList.remove('active');
+                fabBackdrop.classList.remove('active');
+            }
+        });
+
+        // Prevent closing when clicking inside FAB options
+        document.querySelector('.fab-options')?.addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
+
         // Modal functions for Create Folder
         function openCreateFolderModal() {
             const modal = document.getElementById('createFolderModal');
             modal.classList.add('active');
+            
+            // Close FAB when opening modal
+            document.getElementById('fabMain').classList.remove('active');
+            document.getElementById('fabOptions').classList.remove('active');
+            document.getElementById('fabBackdrop').classList.remove('active');
             
             // Get parent folder ID
             const parentId = document.getElementById('parent_id').value;
@@ -1189,6 +1186,11 @@ $months = getMonths();
         function openUploadFileModal() {
             const modal = document.getElementById('uploadFileModal');
             modal.classList.add('active');
+            
+            // Close FAB when opening modal
+            document.getElementById('fabMain').classList.remove('active');
+            document.getElementById('fabOptions').classList.remove('active');
+            document.getElementById('fabBackdrop').classList.remove('active');
             
             // Get folder ID
             const folderId = document.getElementById('upload_folder_id').value;
