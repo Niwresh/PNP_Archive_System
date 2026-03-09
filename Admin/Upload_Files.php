@@ -7,12 +7,12 @@ if (!isset($_SESSION['admin_logged_in'])) {
     exit();
 }
 
-// Initialize variables
+
 $folder_id = !empty($_POST['folder_id']) ? intval($_POST['folder_id']) : null;
 $day = !empty($_POST['day']) ? intval($_POST['day']) : null;
 $custom_filename = isset($_POST['custom_filename']) ? trim($_POST['custom_filename']) : '';
 
-// Check if file was uploaded
+
 if (!isset($_FILES['file']) || $_FILES['file']['error'] != UPLOAD_ERR_OK) {
     $error_message = "File upload error: ";
     switch ($_FILES['file']['error']) {
