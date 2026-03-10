@@ -22,6 +22,12 @@ $current_folder_id = isset($_GET['folder_id']) ? intval($_GET['folder_id']) : nu
 // Get search parameter
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 
+// Get year filter parameter
+$year_filter = isset($_GET['year']) ? $_GET['year'] : '';
+
+// Get semester filter parameter
+$semester_filter = isset($_GET['semester']) ? $_GET['semester'] : '';
+
 // Get view mode (dashboard, drive, or trash)
 $view = isset($_GET['view']) ? $_GET['view'] : 'drive';
 
@@ -106,17 +112,62 @@ $folder_hierarchy_query = $conn->query("
     LIMIT 5
 ");
 
+// Get distinct years for filter dropdown
+$years_query = $conn->query("
+    SELECT DISTINCT year FROM (
+        SELECT year FROM folders WHERE year IS NOT NULL AND deleted_at IS NULL
+        UNION
+        SELECT year FROM files WHERE year IS NOT NULL AND deleted_at IS NULL
+    ) AS all_years ORDER BY year DESC
+");
+$available_years = [];
+if ($years_query && $years_query->num_rows > 0) {
+    while ($year_row = $years_query->fetch_assoc()) {
+        $available_years[] = $year_row['year'];
+    }
+}
+
+// Function to determine semester from month
+function getSemesterFromMonth($month) {
+    if ($month >= 1 && $month <= 6) {
+        return 'first';
+    } elseif ($month >= 7 && $month <= 12) {
+        return 'second';
+    }
+    return '';
+}
+
+// Function to get month range for semester
+function getSemesterMonths($semester) {
+    if ($semester == 'first') {
+        return [1, 6]; // January to June
+    } elseif ($semester == 'second') {
+        return [7, 12]; // July to December
+    }
+    return [1, 12]; // All months if no semester selected
+}
+
 // Build folder query for drive view
 if ($view == 'drive') {
     $folder_query = "SELECT * FROM folders WHERE deleted_at IS NULL";
+    
+    // Add folder location condition
     if ($current_folder_id) {
         $folder_query .= " AND parent_id = $current_folder_id";
     } else {
         $folder_query .= " AND parent_id IS NULL";
     }
+    
+    // Add year filter if selected
+    if (!empty($year_filter)) {
+        $folder_query .= " AND year = " . intval($year_filter);
+    }
+    
+    // Add search condition
     if ($search) {
         $folder_query .= " AND folder_name LIKE '%" . $conn->real_escape_string($search) . "%'";
     }
+    
     $folder_query .= " ORDER BY folder_name ASC";
     $folders = $conn->query($folder_query);
 
@@ -127,14 +178,30 @@ if ($view == 'drive') {
         LEFT JOIN folders ON files.folder_id = folders.id 
         WHERE files.deleted_at IS NULL
     ";
+    
+    // Add folder location condition
     if ($current_folder_id) {
         $file_query .= " AND files.folder_id = $current_folder_id";
     } else {
         $file_query .= " AND files.folder_id IS NULL";
     }
+    
+    // Add year filter if selected
+    if (!empty($year_filter)) {
+        $file_query .= " AND files.year = " . intval($year_filter);
+    }
+    
+    // Add semester filter if selected (only for files, folders don't have month)
+    if (!empty($semester_filter) && !empty($year_filter)) {
+        $months = getSemesterMonths($semester_filter);
+        $file_query .= " AND files.month BETWEEN " . $months[0] . " AND " . $months[1];
+    }
+    
+    // Add search condition
     if ($search) {
         $file_query .= " AND files.file_name LIKE '%" . $conn->real_escape_string($search) . "%'";
     }
+    
     $file_query .= " ORDER BY files.uploaded_at DESC";
     $files = $conn->query($file_query);
 } 
@@ -189,8 +256,8 @@ $folder_tree = buildFolderTree($folders_list);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PNP Archive - Google Drive Style</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/Home.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="dashboard">
@@ -332,7 +399,7 @@ $folder_tree = buildFolderTree($folders_list);
                     </div>
 
                     <!-- SYSTEM INFO AND TRASH SUMMARY -->
-                    <div class="system-info" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="system-info">
                         <div class="info-card">
                             <h4><i class="fas fa-info-circle"></i> System Status</h4>
                             <div class="info-item">
@@ -386,11 +453,11 @@ $folder_tree = buildFolderTree($folders_list);
                                 <i class="fas fa-trash"></i> Trash Bin
                                 <small style="font-size: 14px; opacity: 0.7; margin-left: 10px;">Items are automatically deleted after 30 days</small>
                             </h3>
-                            <div style="display: flex; gap: 10px;">
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <a href="homepage.php?view=trash&trash_filter=all" class="filter-btn <?php echo $trash_filter == 'all' ? 'active' : ''; ?>">All</a>
                                 <a href="homepage.php?view=trash&trash_filter=folders" class="filter-btn <?php echo $trash_filter == 'folders' ? 'active' : ''; ?>">Folders</a>
                                 <a href="homepage.php?view=trash&trash_filter=files" class="filter-btn <?php echo $trash_filter == 'files' ? 'active' : ''; ?>">Files</a>
-                                <button onclick="emptyTrash()" class="filter-btn" style="background: #ff4757;">
+                                <button onclick="emptyTrash()" class="filter-btn" style="background: #ff4757; color: white;">
                                     <i class="fas fa-trash-alt"></i> Empty Trash
                                 </button>
                             </div>
@@ -496,7 +563,7 @@ $folder_tree = buildFolderTree($folders_list);
             <?php else: ?>
                 <!-- DRIVE VIEW -->
                 <div class="drive-view">
-                    <!-- Search Section -->
+                    <!-- Search and Filter Section -->
                     <div class="filters-section">
                         <form method="GET" class="filters-form">
                             <input type="hidden" name="view" value="drive">
@@ -510,11 +577,46 @@ $folder_tree = buildFolderTree($folders_list);
                                        value="<?php echo htmlspecialchars($search); ?>">
                             </div>
                             
+                            <!-- Year Filter Dropdown -->
+                            <div class="filter-dropdown year-filter">
+                                <i class="fas fa-calendar-alt"></i>
+                                <select name="year" onchange="this.form.submit()">
+                                    <option value="">All Years</option>
+                                    <?php foreach ($available_years as $year): ?>
+                                        <option value="<?php echo $year; ?>" <?php echo $year_filter == $year ? 'selected' : ''; ?>>
+                                            <?php echo $year; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                
+                                <?php if (!empty($year_filter)): ?>
+                                    <a href="homepage.php?view=drive<?php echo $current_folder_id ? '&folder_id='.$current_folder_id : ''; ?><?php echo $search ? '&search='.urlencode($search) : ''; ?><?php echo $semester_filter ? '&semester='.$semester_filter : ''; ?>" 
+                                       class="clear-filter" title="Clear year filter">
+                                        <i class="fas fa-times-circle"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <!-- Semester Filter Dropdown -->
+                            <div class="filter-dropdown semester-filter">
+                                <i class="fas fa-layer-group"></i>
+                                <select name="semester" onchange="this.form.submit()" <?php echo empty($year_filter) ? 'disabled' : ''; ?>>
+                                    <option value="">All Semesters</option>
+                                    <option value="first" <?php echo $semester_filter == 'first' ? 'selected' : ''; ?>>First Semester (Jan - Jun)</option>
+                                    <option value="second" <?php echo $semester_filter == 'second' ? 'selected' : ''; ?>>Second Semester (Jul - Dec)</option>
+                                </select>
+                                
+                                <?php if (!empty($semester_filter)): ?>
+                                    <a href="homepage.php?view=drive<?php echo $current_folder_id ? '&folder_id='.$current_folder_id : ''; ?><?php echo $search ? '&search='.urlencode($search) : ''; ?><?php echo $year_filter ? '&year='.$year_filter : ''; ?>" 
+                                       class="clear-filter" title="Clear semester filter">
+                                        <i class="fas fa-times-circle"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                            
                             <button type="submit" class="filter-btn">Search</button>
-                            <?php if ($current_folder_id): ?>
-                                <a href="homepage.php?view=drive&folder_id=<?php echo $current_folder_id; ?>" class="clear-filters">Clear</a>
-                            <?php else: ?>
-                                <a href="homepage.php?view=drive" class="clear-filters">Clear</a>
+                            <?php if ($current_folder_id || $search || $year_filter || $semester_filter): ?>
+                                <a href="homepage.php?view=drive<?php echo $current_folder_id ? '&folder_id='.$current_folder_id : ''; ?>" class="clear-filters">Clear All</a>
                             <?php endif; ?>
                         </form>
                     </div>
@@ -542,10 +644,13 @@ $folder_tree = buildFolderTree($folders_list);
                                 <div class="file-item folder-item" data-id="<?php echo $folder['id']; ?>">
                                     <div class="file-name">
                                         <i class="fas fa-folder folder-icon"></i>
-                                        <a href="homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?><?php echo $search ? '&search='.urlencode($search) : ''; ?>">
+                                        <a href="homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?><?php echo $search ? '&search='.urlencode($search) : ''; ?><?php echo $year_filter ? '&year='.$year_filter : ''; ?><?php echo $semester_filter ? '&semester='.$semester_filter : ''; ?>">
                                             <?php echo htmlspecialchars($folder['folder_name']); ?>
                                             <?php if ($subfolder_count > 0): ?>
-                                                <span style="font-size: 12px; opacity: 0.7; margin-left: 5px;">(<?php echo $subfolder_count; ?> subfolders)</span>
+                                                <span class="badge"><?php echo $subfolder_count; ?> subfolders</span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($folder['year'])): ?>
+                                                <span class="year-badge"><?php echo $folder['year']; ?></span>
                                             <?php endif; ?>
                                         </a>
                                     </div>
@@ -578,12 +683,24 @@ $folder_tree = buildFolderTree($folders_list);
                                 while ($file = $files->fetch_assoc()): 
                                     $file_path = $file['file_path'];
                                     $file_size = file_exists($file_path) ? filesize($file_path) : 0;
+                                    $semester = !empty($file['month']) ? getSemesterFromMonth($file['month']) : '';
+                                    $semester_display = $semester == 'first' ? '1st Sem' : ($semester == 'second' ? '2nd Sem' : '');
+                                    $month_name = !empty($file['month']) ? date('F', mktime(0, 0, 0, $file['month'], 1)) : '';
                             ?>
                                     <div class="file-item" data-id="<?php echo $file['id']; ?>">
                                         <div class="file-name">
                                             <i class="fas <?php echo getFileIcon($file['file_name']); ?> file-icon"></i>
                                             <a href="<?php echo htmlspecialchars($file['file_path']); ?>" target="_blank">
                                                 <?php echo htmlspecialchars($file['file_name']); ?>
+                                                <?php if (!empty($file['year'])): ?>
+                                                    <span class="year-badge"><?php echo $file['year']; ?></span>
+                                                <?php endif; ?>
+                                                <?php if (!empty($month_name)): ?>
+                                                    <span class="month-badge"><?php echo $month_name; ?></span>
+                                                <?php endif; ?>
+                                                <?php if (!empty($semester_display)): ?>
+                                                    <span class="semester-badge"><?php echo $semester_display; ?></span>
+                                                <?php endif; ?>
                                             </a>
                                         </div>
                                         <div class="file-modified">
@@ -616,6 +733,19 @@ $folder_tree = buildFolderTree($folders_list);
                                     <i class="fas fa-folder-open"></i>
                                     <h3>This folder is empty</h3>
                                     <p>Click the + button to create a folder or upload a file</p>
+                                    <?php if (!empty($year_filter) || !empty($semester_filter)): ?>
+                                        <div class="filter-info">
+                                            <i class="fas fa-filter"></i> 
+                                            Filtered by: 
+                                            <?php if (!empty($year_filter)): ?>
+                                                <span class="filter-tag">Year: <?php echo $year_filter; ?></span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($semester_filter)): ?>
+                                                <span class="filter-tag">Semester: <?php echo $semester_filter == 'first' ? 'First' : 'Second'; ?></span>
+                                            <?php endif; ?>
+                                            <a href="homepage.php?view=drive<?php echo $current_folder_id ? '&folder_id='.$current_folder_id : ''; ?>" class="clear-filter-link">Clear all filters</a>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -710,16 +840,47 @@ $folder_tree = buildFolderTree($folders_list);
                 <?php if (!$current_folder_id): ?>
                     <div class="form-group">
                         <label>Select Folder</label>
-                        <select name="folder_id" required>
+                        <select name="folder_id" id="folderSelect" required onchange="toggleMonthField()">
                             <option value="">Root Directory</option>
                             <?php foreach ($folder_tree as $folder): ?>
-                                <option value="<?php echo $folder['id']; ?>">
+                                <option value="<?php echo $folder['id']; ?>" data-has-year="<?php echo !empty($folder['year']) ? '1' : '0'; ?>">
                                     <?php echo str_repeat('&nbsp;&nbsp;&nbsp;', $folder['level']) . '└─ ' . htmlspecialchars($folder['folder_name']); ?>
+                                    <?php if (!empty($folder['year'])): ?>
+                                        [<?php echo $folder['year']; ?>]
+                                    <?php endif; ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                 <?php endif; ?>
+                
+                <!-- Month Selection Dropdown -->
+                <div class="form-group" id="monthField">
+                    <label>Month</label>
+                    <select name="month" id="monthSelect">
+                        <option value="">Select Month</option>
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">Select the month for this file</small>
+                </div>
+                
+                <!-- Year Field (Hidden by default, shown when needed) -->
+                <div class="form-group" id="yearField" style="display: none;">
+                    <label>Year</label>
+                    <input type="number" name="year" id="yearInput" placeholder="Enter year" min="2000" max="<?php echo date('Y'); ?>">
+                    <small style="color: #666; display: block; margin-top: 5px;">Enter the year for this file</small>
+                </div>
                 
                 <?php if ($current_folder_id): ?>
                     <div class="form-group">
@@ -809,6 +970,8 @@ $folder_tree = buildFolderTree($folders_list);
 
         function openUploadModal() {
             document.getElementById('uploadModal').style.display = 'flex';
+            // Initialize month field when modal opens
+            setTimeout(toggleMonthField, 100);
         }
 
         function closeModal(modalId) {
@@ -829,6 +992,45 @@ $folder_tree = buildFolderTree($folders_list);
             }
         }
 
+        function toggleMonthField() {
+            const folderSelect = document.getElementById('folderSelect');
+            const monthField = document.getElementById('monthField');
+            const yearField = document.getElementById('yearField');
+            const yearInput = document.getElementById('yearInput');
+            
+            // If we're in a subfolder (current_folder_id exists), we don't have folder select
+            if (!folderSelect) {
+                // When in a subfolder, always show month field and hide year field
+                if (monthField) monthField.style.display = 'block';
+                if (yearField) yearField.style.display = 'none';
+                if (yearInput) yearInput.removeAttribute('name');
+                return;
+            }
+            
+            if (folderSelect && folderSelect.value) {
+                // If a folder is selected, check if it has a year
+                const selectedOption = folderSelect.options[folderSelect.selectedIndex];
+                const hasYear = selectedOption.getAttribute('data-has-year') === '1';
+                
+                if (hasYear) {
+                    // If folder has year, hide year field and make month optional
+                    yearField.style.display = 'none';
+                    yearInput.removeAttribute('name');
+                    monthField.style.display = 'block';
+                } else {
+                    // If folder doesn't have year, show both month and year
+                    yearField.style.display = 'block';
+                    yearInput.setAttribute('name', 'year');
+                    monthField.style.display = 'block';
+                }
+            } else {
+                // If no folder selected (root directory), show both month and year
+                yearField.style.display = 'block';
+                yearInput.setAttribute('name', 'year');
+                monthField.style.display = 'block';
+            }
+        }
+
         function showFolderDetails(folderId) {
             window.location.href = 'folder_details.php?id=' + folderId;
         }
@@ -838,63 +1040,21 @@ $folder_tree = buildFolderTree($folders_list);
         }
 
         function deleteFolder(id) {
-    currentDeleteId = id;
-    currentDeleteType = 'folder';
-    currentAction = 'trash';
-    document.getElementById('deleteMessage').innerHTML = 'Are you sure you want to move this folder and all its contents to trash?';
-    document.getElementById('deleteModal').style.display = 'flex';
-}
-
-function deleteFile(id) {
-    currentDeleteId = id;
-    currentDeleteType = 'file';
-    currentAction = 'trash';
-    document.getElementById('deleteMessage').innerHTML = 'Are you sure you want to move this file to trash?';
-    document.getElementById('deleteModal').style.display = 'flex';
-}
-
-function permanentlyDeleteFolder(id) {
-    currentDeleteId = id;
-    currentDeleteType = 'folder';
-    currentAction = 'permanent';
-    document.getElementById('permanentDeleteModal').style.display = 'flex';
-}
-
-function permanentlyDeleteFile(id) {
-    currentDeleteId = id;
-    currentDeleteType = 'file';
-    currentAction = 'permanent';
-    document.getElementById('permanentDeleteModal').style.display = 'flex';
-}
-
-// Update the confirm delete button
-document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
-    if (currentDeleteId && currentDeleteType) {
-        window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=${currentAction}`;
-    }
-});
-
-// Update the confirm permanent delete button
-document.getElementById('confirmPermanentDeleteBtn').addEventListener('click', function() {
-    if (currentDeleteId && currentDeleteType) {
-        window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=permanent`;
-    }
-});
-
-        // Restore functions
-        function restoreFolder(id) {
-            if (confirm('Restore this folder and all its contents?')) {
-                window.location.href = `restore_item.php?type=folder&id=${id}`;
-            }
+            currentDeleteId = id;
+            currentDeleteType = 'folder';
+            currentAction = 'trash';
+            document.getElementById('deleteMessage').innerHTML = 'Are you sure you want to move this folder and all its contents to trash?';
+            document.getElementById('deleteModal').style.display = 'flex';
         }
 
-        function restoreFile(id) {
-            if (confirm('Restore this file?')) {
-                window.location.href = `restore_item.php?type=file&id=${id}`;
-            }
+        function deleteFile(id) {
+            currentDeleteId = id;
+            currentDeleteType = 'file';
+            currentAction = 'trash';
+            document.getElementById('deleteMessage').innerHTML = 'Are you sure you want to move this file to trash?';
+            document.getElementById('deleteModal').style.display = 'flex';
         }
 
-        // Permanent delete functions
         function permanentlyDeleteFolder(id) {
             currentDeleteId = id;
             currentDeleteType = 'folder';
@@ -907,6 +1067,33 @@ document.getElementById('confirmPermanentDeleteBtn').addEventListener('click', f
             currentDeleteType = 'file';
             currentAction = 'permanent';
             document.getElementById('permanentDeleteModal').style.display = 'flex';
+        }
+
+        // Update the confirm delete button
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            if (currentDeleteId && currentDeleteType) {
+                window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=${currentAction}`;
+            }
+        });
+
+        // Update the confirm permanent delete button
+        document.getElementById('confirmPermanentDeleteBtn').addEventListener('click', function() {
+            if (currentDeleteId && currentDeleteType) {
+                window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=permanent`;
+            }
+        });
+
+        // Restore functions
+        function restoreFolder(id) {
+            if (confirm('Restore this folder and all its contents?')) {
+                window.location.href = `restore_item.php?type=folder&id=${id}`;
+            }
+        }
+
+        function restoreFile(id) {
+            if (confirm('Restore this file?')) {
+                window.location.href = `restore_item.php?type=file&id=${id}`;
+            }
         }
 
         function emptyTrash() {
@@ -927,18 +1114,6 @@ document.getElementById('confirmPermanentDeleteBtn').addEventListener('click', f
                 window.location.href = `rename_file.php?id=${id}&name=${encodeURIComponent(newName)}`;
             }
         }
-
-        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
-            if (currentDeleteId && currentDeleteType) {
-                window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}`;
-            }
-        });
-
-        document.getElementById('confirmPermanentDeleteBtn').addEventListener('click', function() {
-            if (currentDeleteId && currentDeleteType) {
-                window.location.href = `homepage.php?type=${currentDeleteType}&id=${currentDeleteId}`;
-            }
-        });
 
         document.getElementById('confirmEmptyTrashBtn').addEventListener('click', function() {
             window.location.href = 'empty_trash.php';

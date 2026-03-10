@@ -393,7 +393,7 @@ body {
 }
 
 .search-box {
-    flex: 1;
+    flex: 2;
     min-width: 250px;
     display: flex;
     align-items: center;
@@ -421,6 +421,84 @@ body {
     color: rgba(255, 255, 255, 0.7);
 }
 
+/* Filter Dropdown Styles */
+.filter-dropdown {
+    flex: 1;
+    min-width: 150px;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.filter-dropdown i {
+    position: absolute;
+    left: 12px;
+    color: white;
+    opacity: 0.7;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.filter-dropdown select {
+    width: 100%;
+    padding: 10px 30px 10px 35px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.filter-dropdown select option {
+    background: #667eea;
+    color: white;
+}
+
+.filter-dropdown select:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.filter-dropdown select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.filter-dropdown::after {
+    content: '\f078';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    position: absolute;
+    right: 12px;
+    color: white;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.clear-filter {
+    position: absolute;
+    right: 35px;
+    color: white;
+    text-decoration: none;
+    opacity: 0.7;
+    z-index: 2;
+    transition: opacity 0.3s;
+}
+
+.clear-filter:hover {
+    opacity: 1;
+}
+
+/* Semester Filter Specific */
+.semester-filter i {
+    color: #ffd700;
+}
+
+/* Filter Button */
 .filter-btn {
     padding: 10px 25px;
     background: rgba(255, 255, 255, 0.2);
@@ -430,11 +508,19 @@ body {
     cursor: pointer;
     font-weight: 500;
     transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
 }
 
 .filter-btn:hover {
     background: rgba(255, 255, 255, 0.3);
     transform: translateY(-2px);
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: transparent;
 }
 
 .clear-filters {
@@ -443,6 +529,7 @@ body {
     font-size: 14px;
     opacity: 0.8;
     transition: opacity 0.3s;
+    padding: 10px 15px;
 }
 
 .clear-filters:hover {
@@ -500,6 +587,7 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .file-name i {
@@ -519,11 +607,42 @@ body {
     text-decoration: none;
     font-weight: 500;
     transition: opacity 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .file-name a:hover {
     opacity: 0.8;
     text-decoration: underline;
+}
+
+/* Badges */
+.badge {
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 8px;
+    border-radius: 12px;
+    color: #ffd700;
+}
+
+.year-badge {
+    font-size: 11px;
+    background: rgba(102, 126, 234, 0.3);
+    padding: 2px 8px;
+    border-radius: 12px;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.semester-badge {
+    font-size: 11px;
+    background: rgba(255, 215, 0, 0.2);
+    padding: 2px 8px;
+    border-radius: 12px;
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.3);
 }
 
 .file-modified,
@@ -546,6 +665,10 @@ body {
     border-radius: 5px;
     transition: all 0.3s;
     font-size: 14px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .action-btn:hover {
@@ -577,6 +700,38 @@ body {
 
 .empty-state p {
     opacity: 0.7;
+}
+
+.filter-info {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-tag {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: #ffd700;
+}
+
+.clear-filter-link {
+    color: white;
+    text-decoration: underline;
+    opacity: 0.8;
+    transition: opacity 0.3s;
+    margin-left: 10px;
+}
+
+.clear-filter-link:hover {
+    opacity: 1;
 }
 
 /* Floating Action Button */
@@ -820,6 +975,12 @@ body {
     font-size: 16px;
 }
 
+.delete-content .warning {
+    color: #ff4757;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {
@@ -856,12 +1017,35 @@ body {
 
 @media (max-width: 768px) {
     .sidebar {
-        width: 0;
-        display: none;
+        transform: translateX(-100%);
+        transition: transform 0.3s;
+        z-index: 1001;
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
     }
     
     .main-content {
         margin-left: 0;
+        padding: 15px;
+    }
+    
+    .mobile-menu-toggle {
+        display: flex;
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 1002;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     }
     
     .stats-grid {
@@ -891,7 +1075,8 @@ body {
         flex-direction: column;
     }
     
-    .search-box {
+    .search-box,
+    .filter-dropdown {
         width: 100%;
     }
     
@@ -909,6 +1094,39 @@ body {
         width: 100%;
         justify-content: center;
     }
+    
+    .fab-container {
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .fab {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .top-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+/* Mobile Menu Toggle */
+.mobile-menu-toggle {
+    display: none;
 }
 
 /* Trash Badge */
@@ -934,4 +1152,68 @@ body {
 .filter-btn.active {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-color: transparent;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+/* Month and Year Field Styles */
+#monthField, #yearField {
+    transition: all 0.3s ease;
+}
+
+#monthField select, #yearField input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+#monthField select:focus, #yearField input:focus {
+    border-color: #667eea;
+}
+
+#monthField select {
+    background-color: white;
+    cursor: pointer;
+}
+
+#monthField select option {
+    padding: 10px;
+}
+
+/* Small helper text */
+.form-group small {
+    color: #666;
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #monthField select, #yearField input {
+        padding: 10px;
+        font-size: 13px;
+    }
 }
