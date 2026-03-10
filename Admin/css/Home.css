@@ -1217,3 +1217,29 @@ body {
         font-size: 13px;
     }
 }
+
+/* Month Badge */
+.month-badge {
+    font-size: 11px;
+    background: rgba(52, 152, 219, 0.2);
+    padding: 2px 8px;
+    border-radius: 12px;
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.3);
+    margin-left: 5px;
+}
+
+/* Update semester badge to work alongside month badge */
+.semester-badge {
+    margin-left: 5px;
+}
+
+/* Info text variations */
+.info-text i.fa-calendar-alt {
+    color: #ffd700;
+}
+
+/* Folder item hover effect */
+.folder-item:hover .month-badge {
+    background: rgba(52, 152, 219, 0.3);
+}

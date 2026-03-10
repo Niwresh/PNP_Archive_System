@@ -640,6 +640,11 @@ $folder_tree = buildFolderTree($folders_list);
                                     // Count subfolders for each folder
                                     $subfolder_count_query = $conn->query("SELECT COUNT(*) as count FROM folders WHERE parent_id = " . $folder['id'] . " AND deleted_at IS NULL");
                                     $subfolder_count = $subfolder_count_query->fetch_assoc()['count'];
+                                    
+                                    // Get month name if available
+                                    $month_name = !empty($folder['month']) ? date('F', mktime(0, 0, 0, $folder['month'], 1)) : '';
+                                    $semester = !empty($folder['month']) ? getSemesterFromMonth($folder['month']) : '';
+                                    $semester_display = $semester == 'first' ? '1st Sem' : ($semester == 'second' ? '2nd Sem' : '');
                             ?>
                                 <div class="file-item folder-item" data-id="<?php echo $folder['id']; ?>">
                                     <div class="file-name">
@@ -651,6 +656,12 @@ $folder_tree = buildFolderTree($folders_list);
                                             <?php endif; ?>
                                             <?php if (!empty($folder['year'])): ?>
                                                 <span class="year-badge"><?php echo $folder['year']; ?></span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($month_name)): ?>
+                                                <span class="month-badge"><?php echo $month_name; ?></span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($semester_display)): ?>
+                                                <span class="semester-badge"><?php echo $semester_display; ?></span>
                                             <?php endif; ?>
                                         </a>
                                     </div>
@@ -795,15 +806,89 @@ $folder_tree = buildFolderTree($folders_list);
                 </div>
                 
                 <?php if (!$current_folder_id): ?>
+                    <!-- Main Folder Creation -->
                     <div class="form-group">
                         <label>Year</label>
-                        <input type="number" name="year" placeholder="Enter year" min="2000" max="<?php echo date('Y'); ?>" required>
+                        <input type="number" name="year" id="folderYear" placeholder="Enter year" min="2000" max="<?php echo date('Y'); ?>" required>
+                    </div>
+                    
+                    <!-- Month Selection for Main Folder -->
+                    <div class="form-group" id="folderMonthField">
+                        <label>Month</label>
+                        <select name="month" id="folderMonth">
+                            <option value="">Select Month (Optional)</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                        <small style="color: #666; display: block; margin-top: 5px;">Select month for this folder (optional)</small>
                     </div>
                 <?php else: ?>
+                    <!-- Subfolder Creation - Inherit from parent -->
                     <div class="info-text">
                         <i class="fas fa-info-circle"></i>
                         This folder will be created inside: <strong><?php echo htmlspecialchars($current_folder['folder_name']); ?></strong>
                     </div>
+                    
+                    <?php
+                    // Get parent folder's year and month
+                    $parent_info_query = $conn->query("SELECT year, month FROM folders WHERE id = $current_folder_id");
+                    $parent_info = $parent_info_query->fetch_assoc();
+                    ?>
+                    
+                    <?php if (!empty($parent_info['year'])): ?>
+                        <div class="info-text" style="background: rgba(255, 215, 0, 0.1); border-left-color: #ffd700;">
+                            <i class="fas fa-calendar-alt" style="color: #ffd700;"></i>
+                            This subfolder will inherit year: <strong><?php echo $parent_info['year']; ?></strong>
+                            <?php if (!empty($parent_info['month'])): ?>
+                                and month: <strong><?php echo date('F', mktime(0, 0, 0, $parent_info['month'], 1)); ?></strong>
+                            <?php endif; ?>
+                            <input type="hidden" name="year" value="<?php echo $parent_info['year']; ?>">
+                        </div>
+                    <?php endif; ?>
+                    
+                    <!-- Month Selection for Subfolder (can override parent's month or set if parent doesn't have one) -->
+                    <div class="form-group" id="subfolderMonthField">
+                        <label>Month</label>
+                        <select name="month" id="subfolderMonth">
+                            <option value=""><?php echo !empty($parent_info['month']) ? 'Use Parent Month' : 'Select Month (Optional)'; ?></option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                        <small style="color: #666; display: block; margin-top: 5px;">
+                            <?php echo !empty($parent_info['month']) ? 'Select a different month to override parent, or leave empty to use parent month' : 'Select month for this folder (optional)'; ?>
+                        </small>
+                    </div>
+                    
+                    <?php if (!empty($parent_info['month'])): ?>
+                        <script>
+                            // Set the parent month as the default selected option text
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const monthSelect = document.getElementById('subfolderMonth');
+                                const parentMonth = <?php echo $parent_info['month']; ?>;
+                                monthSelect.options[0].text = 'Use Parent Month (<?php echo date('F', mktime(0, 0, 0, $parent_info['month'], 1)); ?>)';
+                            });
+                        </script>
+                    <?php endif; ?>
                 <?php endif; ?>
                 
                 <div class="modal-footer">
