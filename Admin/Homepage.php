@@ -78,16 +78,31 @@ $trash_files = $trash_files_query->fetch_assoc()['count'];
 $trash_folders_query = $conn->query("SELECT COUNT(*) as count FROM folders WHERE deleted_at IS NOT NULL");
 $trash_folders = $trash_folders_query->fetch_assoc()['count'];
 
-// Calculate total storage used
-$storage_used = 0;
-$all_files_query = $conn->query("SELECT file_path FROM files WHERE deleted_at IS NULL");
-while ($file = $all_files_query->fetch_assoc()) {
-    if (file_exists($file['file_path'])) {
-        $storage_used += filesize($file['file_path']);
-    }
+// Calculate total storage used using the function from PNP_Archive.php
+$storage_used = calculateTotalStorage($conn);
+
+// Define total storage limit (5GB)
+$total_storage_limit = 5 * 1024 * 1024 * 1024; // 5GB// 10GB in bytes
+
+// Calculate storage percentage
+$storage_percent = ($storage_used / $total_storage_limit) * 100;
+
+// Ensure very small storage still shows on bar
+if ($storage_percent > 0 && $storage_percent < 1) {
+    $storage_percent = 1;
 }
 
-// Format storage used
+$storage_percent = min(100, round($storage_percent, 2));
+// Determine storage bar color based on usage
+$storage_bar_color = '#4caf50'; // Green for normal usage
+if ($storage_percent > 80) {
+    $storage_bar_color = '#ff9800'; // Orange for warning
+}
+if ($storage_percent > 95) {
+    $storage_bar_color = '#f44336'; // Red for critical
+}
+
+// Format storage used for display
 if ($storage_used >= 1073741824) {
     $storage_display = number_format($storage_used / 1073741824, 2) . ' GB';
 } elseif ($storage_used >= 1048576) {
@@ -96,6 +111,21 @@ if ($storage_used >= 1073741824) {
     $storage_display = number_format($storage_used / 1024, 2) . ' KB';
 } else {
     $storage_display = $storage_used . ' bytes';
+}
+
+// Format total storage
+$total_storage_display = '5  GB';
+
+// Calculate remaining storage
+$remaining_storage = $total_storage_limit - $storage_used;
+if ($remaining_storage >= 1073741824) {
+    $remaining_display = number_format($remaining_storage / 1073741824, 2) . ' GB';
+} elseif ($remaining_storage >= 1048576) {
+    $remaining_display = number_format($remaining_storage / 1048576, 2) . ' MB';
+} elseif ($remaining_storage >= 1024) {
+    $remaining_display = number_format($remaining_storage / 1024, 2) . ' KB';
+} else {
+    $remaining_display = $remaining_storage . ' bytes';
 }
 
 // Get folder hierarchy statistics for dashboard
@@ -258,6 +288,116 @@ $folder_tree = buildFolderTree($folders_list);
     <title>PNP Archive - Google Drive Style</title>
     <link rel="stylesheet" href="css/Home.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Enhanced storage bar styles */
+        .storage-info {
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 20px;
+            color: white;
+        }
+        
+        .storage-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .storage-header i {
+            color: #ffd700;
+            font-size: 1.2rem;
+        }
+        
+        .storage-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .storage-used-text {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .storage-percent {
+            font-weight: 600;
+            color: #ffd700;
+        }
+        
+        .storage-bar-container {
+            position: relative;
+            margin: 10px 0 5px;
+        }
+        
+        .storage-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        
+        .storage-used-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            transition: width 0.5s ease-in-out;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .storage-used-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0.1) 0%,
+                rgba(255, 255, 255, 0.3) 50%,
+                rgba(255, 255, 255, 0.1) 100%
+            );
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+        
+        .storage-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 5px;
+        }
+        
+        .storage-warning {
+            color: #ff9800;
+            font-size: 11px;
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .storage-critical {
+            color: #f44336;
+        }
+        
+        .storage-warning i {
+            font-size: 12px;
+        }
+    </style>
 </head>
 <body>
     <div class="dashboard">
@@ -289,15 +429,45 @@ $folder_tree = buildFolderTree($folders_list);
                 <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
             </ul>
 
+            <!-- Enhanced Storage Info -->
             <div class="storage-info">
-                <i class="fas fa-database"></i>
-                <span>Storage: <?php echo $storage_display; ?> / 10GB</span>
-                <?php 
-                $storage_percent = min(100, round(($storage_used / (10 * 1073741824)) * 100));
-                ?>
-                <div class="storage-bar">
-                    <div class="storage-used" style="width: <?php echo $storage_percent; ?>%"></div>
+                <div class="storage-header">
+                    <i class="fas fa-database"></i>
+                    <span>Storage Overview</span>
                 </div>
+                
+                <div class="storage-stats">
+                    <span class="storage-used-text">Used: <?php echo $storage_display; ?></span>
+                    <span class="storage-percent"><?php echo $storage_percent; ?>%</span>
+                </div>
+                
+                <div class="storage-bar-container">
+                    <div class="storage-bar">
+                        <div class="storage-used-bar" style="width: <?php echo $storage_percent; ?>%; background-color: <?php echo $storage_bar_color; ?>;"></div>
+                    </div>
+                </div>
+                
+                <div class="storage-details">
+                    <span>Total: <?php echo $total_storage_display; ?></span>
+                    <span>Free: <?php echo $remaining_display; ?></span>
+                </div>
+                
+                <?php if ($storage_percent > 80): ?>
+                    <div class="storage-warning <?php echo $storage_percent > 95 ? 'storage-critical' : ''; ?>">
+                        <i class="fas <?php echo $storage_percent > 95 ? 'fa-exclamation-triangle' : 'fa-exclamation-circle'; ?>"></i>
+                        <span>
+                            <?php 
+                            if ($storage_percent > 95) {
+                                echo "Critical: Storage almost full!";
+                            } elseif ($storage_percent > 90) {
+                                echo "Warning: Very low storage space!";
+                            } else {
+                                echo "Notice: Storage running low";
+                            }
+                            ?>
+                        </span>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -693,7 +863,17 @@ $folder_tree = buildFolderTree($folders_list);
                                 $has_files = true;
                                 while ($file = $files->fetch_assoc()): 
                                     $file_path = $file['file_path'];
-                                    $file_size = file_exists($file_path) ? filesize($file_path) : 0;
+                                    $file_size = 0;
+                                    
+                                    // Check multiple possible paths for file size
+                                    if (file_exists($file_path)) {
+                                        $file_size = filesize($file_path);
+                                    } elseif (file_exists('uploads/' . basename($file_path))) {
+                                        $file_size = filesize('uploads/' . basename($file_path));
+                                    } elseif (file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $file_path)) {
+                                        $file_size = filesize($_SERVER['DOCUMENT_ROOT'] . '/' . $file_path);
+                                    }
+                                    
                                     $semester = !empty($file['month']) ? getSemesterFromMonth($file['month']) : '';
                                     $semester_display = $semester == 'first' ? '1st Sem' : ($semester == 'second' ? '2nd Sem' : '');
                                     $month_name = !empty($file['month']) ? date('F', mktime(0, 0, 0, $file['month'], 1)) : '';

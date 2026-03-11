@@ -1,5 +1,11 @@
 <?php
-$conn = new mysqli("localhost", "root", "", "PNP_Archive_db");
+// Database connection
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "PNP_Archive_db";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
 
 if ($conn->connect_error) {
     die("Connection Failed: " . $conn->connect_error);
@@ -7,6 +13,82 @@ if ($conn->connect_error) {
 
 // Set charset to UTF-8
 $conn->set_charset("utf8mb4");
+
+// Define total storage limit (10GB)
+define('TOTAL_STORAGE_LIMIT', 5 * 573741824); // 5GB in bytes
+
+// Function to calculate total storage used
+function calculateTotalStorage($conn) {
+    $storage_used = 0;
+    $query = $conn->query("SELECT file_path FROM files WHERE deleted_at IS NULL");
+    
+    if ($query && $query->num_rows > 0) {
+        while ($file = $query->fetch_assoc()) {
+            $file_path = $file['file_path'];
+            
+            // Check multiple possible paths
+            if (file_exists($file_path)) {
+                $storage_used += filesize($file_path);
+            } 
+            // Check if path starts with uploads/
+            elseif (file_exists('uploads/' . basename($file_path))) {
+                $storage_used += filesize('uploads/' . basename($file_path));
+            }
+            // Check absolute path from document root
+            elseif (file_exists($_SERVER['DOCUMENT_ROOT'] . '/PNP_Archive_System/Admin/' . $file_path)) {
+                $storage_used += filesize($_SERVER['DOCUMENT_ROOT'] . '/PNP_Archive_System/Admin/' . $file_path);
+            }
+            // Check relative path from admin directory
+            elseif (file_exists(__DIR__ . '/' . $file_path)) {
+                $storage_used += filesize(__DIR__ . '/' . $file_path);
+            }
+        }
+    }
+    
+    return $storage_used;
+}
+
+// Function to get storage statistics
+function getStorageStats($conn) {
+    $storage_used = calculateTotalStorage($conn);
+    $storage_percent = min(100, round(($storage_used / TOTAL_STORAGE_LIMIT) * 100, 1));
+    
+    // Determine color based on usage
+    $color = '#4caf50'; // Green
+    if ($storage_percent > 80) {
+        $color = '#ff9800'; // Orange
+    }
+    if ($storage_percent > 95) {
+        $color = '#f44336'; // Red
+    }
+    
+    return [
+        'used' => $storage_used,
+        'used_formatted' => formatFileSize($storage_used),
+        'percent' => $storage_percent,
+        'color' => $color,
+        'total_formatted' => '10 GB',
+        'free' => TOTAL_STORAGE_LIMIT - $storage_used,
+        'free_formatted' => formatFileSize(TOTAL_STORAGE_LIMIT - $storage_used)
+    ];
+}
+
+// Function to format file size
+function formatFileSize($bytes) {
+    if ($bytes >= 1073741824) {
+        return number_format($bytes / 1073741824, 2) . ' GB';
+    } elseif ($bytes >= 1048576) {
+        return number_format($bytes / 1048576, 2) . ' MB';
+    } elseif ($bytes >= 1024) {
+        return number_format($bytes / 1024, 2) . ' KB';
+    } elseif ($bytes > 1) {
+        return $bytes . ' bytes';
+    } elseif ($bytes == 1) {
+        return '1 byte';
+    } else {
+        return '0 bytes';
+    }
+}
 
 // Function to get folder path hierarchy
 function getFolderPath($folder_id, $conn) {
@@ -35,23 +117,6 @@ function getFolderYear($folder_id, $conn) {
         return $folder['year'];
     }
     return null;
-}
-
-// Function to format file size
-function formatFileSize($bytes) {
-    if ($bytes >= 1073741824) {
-        return number_format($bytes / 1073741824, 2) . ' GB';
-    } elseif ($bytes >= 1048576) {
-        return number_format($bytes / 1048576, 2) . ' MB';
-    } elseif ($bytes >= 1024) {
-        return number_format($bytes / 1024, 2) . ' KB';
-    } elseif ($bytes > 1) {
-        return $bytes . ' bytes';
-    } elseif ($bytes == 1) {
-        return '1 byte';
-    } else {
-        return '0 bytes';
-    }
 }
 
 // Function to get file icon based on extension
