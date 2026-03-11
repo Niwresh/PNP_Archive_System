@@ -82,7 +82,7 @@ $trash_folders = $trash_folders_query->fetch_assoc()['count'];
 $storage_used = calculateTotalStorage($conn);
 
 // Define total storage limit (5GB)
-$total_storage_limit = 5 * 1024 * 1024 * 1024; // 5GB// 10GB in bytes
+$total_storage_limit = 5 * 1024 * 1024 * 1024; // 5GB in bytes
 
 // Calculate storage percentage
 $storage_percent = ($storage_used / $total_storage_limit) * 100;
@@ -114,7 +114,7 @@ if ($storage_used >= 1073741824) {
 }
 
 // Format total storage
-$total_storage_display = '5  GB';
+$total_storage_display = '5 GB';
 
 // Calculate remaining storage
 $remaining_storage = $total_storage_limit - $storage_used;
@@ -179,62 +179,87 @@ function getSemesterMonths($semester) {
 
 // Build folder query for drive view
 if ($view == 'drive') {
-    $folder_query = "SELECT * FROM folders WHERE deleted_at IS NULL";
-    
-    // Add folder location condition
-    if ($current_folder_id) {
-        $folder_query .= " AND parent_id = $current_folder_id";
-    } else {
-        $folder_query .= " AND parent_id IS NULL";
-    }
-    
-    // Add year filter if selected
-    if (!empty($year_filter)) {
-        $folder_query .= " AND year = " . intval($year_filter);
-    }
-    
-    // Add search condition
-    if ($search) {
-        $folder_query .= " AND folder_name LIKE '%" . $conn->real_escape_string($search) . "%'";
-    }
-    
-    $folder_query .= " ORDER BY folder_name ASC";
-    $folders = $conn->query($folder_query);
 
-    // Build files query for drive view
-    $file_query = "
-        SELECT files.*, folders.folder_name
-        FROM files 
-        LEFT JOIN folders ON files.folder_id = folders.id 
-        WHERE files.deleted_at IS NULL
-    ";
-    
-    // Add folder location condition
-    if ($current_folder_id) {
-        $file_query .= " AND files.folder_id = $current_folder_id";
-    } else {
-        $file_query .= " AND files.folder_id IS NULL";
+    // GLOBAL SEARCH (search entire system)
+    if (!empty($search)) {
+
+        $folder_query = "
+            SELECT * FROM folders
+            WHERE deleted_at IS NULL
+            AND folder_name LIKE '%" . $conn->real_escape_string($search) . "%'
+            ORDER BY folder_name ASC
+        ";
+
+        $folders = $conn->query($folder_query);
+
+        $file_query = "
+            SELECT files.*, folders.folder_name
+            FROM files
+            LEFT JOIN folders ON files.folder_id = folders.id
+            WHERE files.deleted_at IS NULL
+            AND files.file_name LIKE '%" . $conn->real_escape_string($search) . "%'
+            ORDER BY files.uploaded_at DESC
+        ";
+
+        $files = $conn->query($file_query);
     }
-    
-    // Add year filter if selected
-    if (!empty($year_filter)) {
-        $file_query .= " AND files.year = " . intval($year_filter);
+
+    // NORMAL DRIVE VIEW
+    else {
+
+        $folder_query = "SELECT * FROM folders WHERE deleted_at IS NULL";
+
+        // Show folders in current location
+        if ($current_folder_id) {
+            $folder_query .= " AND parent_id = $current_folder_id";
+        } else {
+            $folder_query .= " AND parent_id IS NULL";
+        }
+
+        // Year filter for folders
+        if (!empty($year_filter)) {
+            $folder_query .= " AND year = " . intval($year_filter);
+            
+            // Add semester filter for folders if selected
+            if (!empty($semester_filter)) {
+                $months = getSemesterMonths($semester_filter);
+                $folder_query .= " AND month BETWEEN " . $months[0] . " AND " . $months[1];
+            }
+        }
+
+        $folder_query .= " ORDER BY folder_name ASC";
+        $folders = $conn->query($folder_query);
+
+
+        $file_query = "
+            SELECT files.*, folders.folder_name
+            FROM files
+            LEFT JOIN folders ON files.folder_id = folders.id
+            WHERE files.deleted_at IS NULL
+        ";
+
+        // Show files in current folder
+        if ($current_folder_id) {
+            $file_query .= " AND files.folder_id = $current_folder_id";
+        } else {
+            $file_query .= " AND files.folder_id IS NULL";
+        }
+
+        // Year filter for files
+        if (!empty($year_filter)) {
+            $file_query .= " AND files.year = " . intval($year_filter);
+            
+            // Semester filter for files
+            if (!empty($semester_filter)) {
+                $months = getSemesterMonths($semester_filter);
+                $file_query .= " AND files.month BETWEEN " . $months[0] . " AND " . $months[1];
+            }
+        }
+
+        $file_query .= " ORDER BY files.uploaded_at DESC";
+        $files = $conn->query($file_query);
     }
-    
-    // Add semester filter if selected (only for files, folders don't have month)
-    if (!empty($semester_filter) && !empty($year_filter)) {
-        $months = getSemesterMonths($semester_filter);
-        $file_query .= " AND files.month BETWEEN " . $months[0] . " AND " . $months[1];
-    }
-    
-    // Add search condition
-    if ($search) {
-        $file_query .= " AND files.file_name LIKE '%" . $conn->real_escape_string($search) . "%'";
-    }
-    
-    $file_query .= " ORDER BY files.uploaded_at DESC";
-    $files = $conn->query($file_query);
-} 
+}
 // Build query for trash view
 elseif ($view == 'trash') {
     if ($trash_filter == 'folders') {
@@ -289,113 +314,32 @@ $folder_tree = buildFolderTree($folders_list);
     <link rel="stylesheet" href="css/Home.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Enhanced storage bar styles */
-        .storage-info {
-            padding: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-            margin-top: 20px;
-            color: white;
+        /* Additional styles for semester badges */
+        .semester-badge {
+            background: #ffd700;
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 10px;
+            margin-left: 5px;
+            font-weight: bold;
         }
         
-        .storage-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .storage-header i {
-            color: #ffd700;
-            font-size: 1.2rem;
-        }
-        
-        .storage-stats {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
+        .filter-info {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
             font-size: 13px;
         }
         
-        .storage-used-text {
-            color: rgba(255, 255, 255, 0.9);
-        }
-        
-        .storage-percent {
-            font-weight: 600;
-            color: #ffd700;
-        }
-        
-        .storage-bar-container {
-            position: relative;
-            margin: 10px 0 5px;
-        }
-        
-        .storage-bar {
-            height: 8px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 5px;
-        }
-        
-        .storage-used-bar {
-            height: 100%;
-            width: 0%;
-            border-radius: 4px;
-            transition: width 0.5s ease-in-out;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .storage-used-bar::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(
-                90deg,
-                rgba(255, 255, 255, 0.1) 0%,
-                rgba(255, 255, 255, 0.3) 50%,
-                rgba(255, 255, 255, 0.1) 100%
-            );
-            animation: shimmer 2s infinite;
-        }
-        
-        @keyframes shimmer {
-            0% {
-                transform: translateX(-100%);
-            }
-            100% {
-                transform: translateX(100%);
-            }
-        }
-        
-        .storage-details {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-top: 5px;
-        }
-        
-        .storage-warning {
-            color: #ff9800;
-            font-size: 11px;
-            margin-top: 5px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .storage-critical {
-            color: #f44336;
-        }
-        
-        .storage-warning i {
-            font-size: 12px;
+        .filter-tag {
+            background: #3498db;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 15px;
+            margin: 0 3px;
+            display: inline-block;
         }
     </style>
 </head>
@@ -767,7 +711,7 @@ $folder_tree = buildFolderTree($folders_list);
                                 <?php endif; ?>
                             </div>
                             
-                            <!-- Semester Filter Dropdown -->
+                            <!-- Semester Filter Dropdown (Now applies to both folders and files) -->
                             <div class="filter-dropdown semester-filter">
                                 <i class="fas fa-layer-group"></i>
                                 <select name="semester" onchange="this.form.submit()" <?php echo empty($year_filter) ? 'disabled' : ''; ?>>
@@ -786,9 +730,22 @@ $folder_tree = buildFolderTree($folders_list);
                             
                             <button type="submit" class="filter-btn">Search</button>
                             <?php if ($current_folder_id || $search || $year_filter || $semester_filter): ?>
-                                <a href="homepage.php?view=drive<?php echo $current_folder_id ? '&folder_id='.$current_folder_id : ''; ?>" class="clear-filters">Clear All</a>
+                                <a href="homepage.php?view=drive" class="clear-filters">Clear All</a>
                             <?php endif; ?>
                         </form>
+                        
+                        <!-- Active Filters Display -->
+                        <?php if (!empty($year_filter) || !empty($semester_filter)): ?>
+                            <div class="filter-info" style="margin-top: 10px; padding: 5px 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                                <i class="fas fa-filter"></i> Active Filters: 
+                                <?php if (!empty($year_filter)): ?>
+                                    <span class="filter-tag">Year: <?php echo $year_filter; ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($semester_filter)): ?>
+                                    <span class="filter-tag">Semester: <?php echo $semester_filter == 'first' ? 'First Semester (Jan-Jun)' : 'Second Semester (Jul-Dec)'; ?></span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Files Area -->
@@ -819,7 +776,7 @@ $folder_tree = buildFolderTree($folders_list);
                                 <div class="file-item folder-item" data-id="<?php echo $folder['id']; ?>">
                                     <div class="file-name">
                                         <i class="fas fa-folder folder-icon"></i>
-                                        <a href="homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?><?php echo $search ? '&search='.urlencode($search) : ''; ?><?php echo $year_filter ? '&year='.$year_filter : ''; ?><?php echo $semester_filter ? '&semester='.$semester_filter : ''; ?>">
+                                        <a href="homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?><?php echo $year_filter ? '&year='.$year_filter : ''; ?><?php echo $semester_filter ? '&semester='.$semester_filter : ''; ?>">
                                             <?php echo htmlspecialchars($folder['folder_name']); ?>
                                             <?php if ($subfolder_count > 0): ?>
                                                 <span class="badge"><?php echo $subfolder_count; ?> subfolders</span>
