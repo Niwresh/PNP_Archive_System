@@ -1243,3 +1243,112 @@ body {
 .folder-item:hover .month-badge {
     background: rgba(52, 152, 219, 0.3);
 }
+
+/* Enhanced storage bar styles */
+        .storage-info {
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 20px;
+            color: white;
+        }
+        
+        .storage-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .storage-header i {
+            color: #ffd700;
+            font-size: 1.2rem;
+        }
+        
+        .storage-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .storage-used-text {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .storage-percent {
+            font-weight: 600;
+            color: #ffd700;
+        }
+        
+        .storage-bar-container {
+            position: relative;
+            margin: 10px 0 5px;
+        }
+        
+        .storage-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        
+        .storage-used-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            transition: width 0.5s ease-in-out;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .storage-used-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0.1) 0%,
+                rgba(255, 255, 255, 0.3) 50%,
+                rgba(255, 255, 255, 0.1) 100%
+            );
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+        
+        .storage-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 5px;
+        }
+        
+        .storage-warning {
+            color: #ff9800;
+            font-size: 11px;
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .storage-critical {
+            color: #f44336;
+        }
+        
+        .storage-warning i {
+            font-size: 12px;
+        }
