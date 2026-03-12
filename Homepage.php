@@ -1178,5 +1178,5 @@ $folder_tree = buildFolderTree($folders_list);
     </div>
 </body>
 
-<script src="main.js"></script>
+<script src="js/main.js"></script>
 </html>
