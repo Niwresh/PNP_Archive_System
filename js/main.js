@@ -1,291 +1,267 @@
-/**
- * Admin Login Page - Main JavaScript
- */
-
-// Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-    'use strict';
+'use strict';
 
-    // Get DOM elements
-    const loginForm = document.querySelector('form');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const loginBtn = document.querySelector('.login-btn');
+/* =========================
+   EXISTING LOGIN VARIABLES
+========================= */
 
-    // Add input event listeners for real-time validation
-    if (emailInput) {
-        emailInput.addEventListener('input', function() {
-            validateEmail(this);
-        });
-    }
+const loginForm = document.querySelector('form');
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
+const loginBtn = document.querySelector('.login-btn');
 
-    if (passwordInput) {
-        passwordInput.addEventListener('input', function() {
-            validatePassword(this);
-        });
-    }
 
-    // Form submission handler
-    if (loginForm) {
-        loginForm.addEventListener('submit', function(e) {
-            if (!validateForm()) {
-                e.preventDefault();
-            }
-        });
-    }
+/* ======================================================
+   NEW VARIABLES FOR DRIVE / FILE SYSTEM FUNCTIONALITY
+====================================================== */
 
-    // Email validation
-    function validateEmail(input) {
-        const email = input.value.trim();
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        
-        removeError(input);
-        
-        if (email && !emailPattern.test(email)) {
-            showError(input, 'Please enter a valid email address');
-            return false;
+let currentDeleteId = null;
+let currentDeleteType = null;
+let currentAction = null;
+
+
+/* =========================
+   FAB MENU
+========================= */
+
+window.toggleFabMenu = function() {
+    document.getElementById('fabMenu')?.classList.toggle('show');
+}
+
+
+/* =========================
+   MODALS
+========================= */
+
+window.openFolderModal = function() {
+    document.getElementById('folderModal').style.display = 'flex';
+}
+
+window.openUploadModal = function() {
+    document.getElementById('uploadModal').style.display = 'flex';
+    setTimeout(toggleMonthField, 100);
+}
+
+window.closeModal = function(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+
+/* =========================
+   FILE NAME UPDATE
+========================= */
+
+window.updateFileName = function() {
+
+    const fileInput = document.getElementById('fileInput');
+    const customFilename = document.getElementById('customFilename');
+
+    if (fileInput && fileInput.files.length > 0) {
+
+        const fullName = fileInput.files[0].name;
+        const nameWithoutExt = fullName.substring(0, fullName.lastIndexOf('.')) || fullName;
+
+        if (!customFilename.value) {
+            customFilename.value = nameWithoutExt;
         }
-        
-        return true;
+
     }
 
-    // Password validation
-    function validatePassword(input) {
-        const password = input.value;
-        
-        removeError(input);
-        
-        if (password && password.length < 6) {
-            showError(input, 'Password must be at least 6 characters');
-            return false;
+}
+
+
+/* =========================
+   MONTH / YEAR LOGIC
+========================= */
+
+window.toggleMonthField = function() {
+
+    const folderSelect = document.getElementById('folderSelect');
+    const monthField = document.getElementById('monthField');
+    const yearField = document.getElementById('yearField');
+    const yearInput = document.getElementById('yearInput');
+
+    if (!folderSelect) {
+
+        if (monthField) monthField.style.display = 'block';
+        if (yearField) yearField.style.display = 'none';
+        if (yearInput) yearInput.removeAttribute('name');
+
+        return;
+    }
+
+    if (folderSelect.value) {
+
+        const selectedOption = folderSelect.options[folderSelect.selectedIndex];
+        const hasYear = selectedOption.getAttribute('data-has-year') === '1';
+
+        if (hasYear) {
+
+            yearField.style.display = 'none';
+            yearInput.removeAttribute('name');
+            monthField.style.display = 'block';
+
+        } else {
+
+            yearField.style.display = 'block';
+            yearInput.setAttribute('name','year');
+            monthField.style.display = 'block';
+
         }
-        
-        return true;
+
+    } else {
+
+        yearField.style.display = 'block';
+        yearInput.setAttribute('name','year');
+        monthField.style.display = 'block';
+
     }
 
-    // Form validation
-    function validateForm() {
-        let isValid = true;
-        
-        // Validate email
-        if (!emailInput.value.trim()) {
-            showError(emailInput, 'Email is required');
-            isValid = false;
-        } else if (!validateEmail(emailInput)) {
-            isValid = false;
-        }
-        
-        // Validate password
-        if (!passwordInput.value) {
-            showError(passwordInput, 'Password is required');
-            isValid = false;
-        } else if (!validatePassword(passwordInput)) {
-            isValid = false;
-        }
-        
-        return isValid;
-    }
+}
 
-    // Show error message
-    function showError(input, message) {
-        // Remove any existing error
-        removeError(input);
-        
-        // Create error element
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'input-error';
-        errorDiv.style.color = '#ce1126';
-        errorDiv.style.fontSize = '12px';
-        errorDiv.style.marginTop = '5px';
-        errorDiv.style.marginLeft = '2px';
-        errorDiv.textContent = message;
-        
-        // Add error class to input
-        input.style.borderColor = '#ce1126';
-        
-        // Insert error after input
-        input.parentNode.insertBefore(errorDiv, input.nextSibling);
-    }
 
-    // Remove error message
-    function removeError(input) {
-        // Reset input border
-        input.style.borderColor = '#e0e0e0';
-        
-        // Remove error message if exists
-        const nextElement = input.nextElementSibling;
-        if (nextElement && nextElement.className === 'input-error') {
-            nextElement.remove();
-        }
-    }
+/* =========================
+   OPEN DETAILS
+========================= */
 
-    // Add loading state to button on form submit
-    if (loginBtn) {
-        loginBtn.addEventListener('click', function(e) {
-            if (loginForm.checkValidity()) {
-                this.classList.add('loading');
-                this.textContent = 'LOGGING IN...';
-            }
-        });
-    }
+window.showFolderDetails = function(folderId){
+    window.location.href = 'folder_details.php?id=' + folderId;
+}
 
-    // Auto-hide error messages after 5 seconds
-    const errorMessage = document.querySelector('.error-message');
-    if (errorMessage) {
-        setTimeout(function() {
-            errorMessage.style.transition = 'opacity 0.5s';
-            errorMessage.style.opacity = '0';
-            setTimeout(function() {
-                if (errorMessage.parentNode) {
-                    errorMessage.remove();
-                }
-            }, 500);
-        }, 5000);
-    }
+window.showFileDetails = function(fileId){
+    window.location.href = 'file_details.php?id=' + fileId;
+}
 
-    // Add focus effect to input groups
-    const inputGroups = document.querySelectorAll('.input-group');
-    inputGroups.forEach(group => {
-        const input = group.querySelector('input');
-        const label = group.querySelector('label');
-        
-        if (input && label) {
-            // Check if input has value on page load
-            if (input.value) {
-                label.style.color = '#0038a8';
-            }
-            
-            input.addEventListener('focus', function() {
-                label.style.color = '#0038a8';
-            });
-            
-            input.addEventListener('blur', function() {
-                if (!this.value) {
-                    label.style.color = '#333';
-                }
-            });
-        }
-    });
 
-    // Add ripple effect to login button
-    if (loginBtn) {
-        loginBtn.addEventListener('click', function(e) {
-            const ripple = document.createElement('span');
-            ripple.className = 'ripple-effect';
-            
-            const rect = this.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            
-            ripple.style.width = ripple.style.height = size + 'px';
-            ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
-            ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
-            
-            this.appendChild(ripple);
-            
-            setTimeout(() => {
-                ripple.remove();
-            }, 600);
-        });
-    }
+/* =========================
+   DELETE FUNCTIONS
+========================= */
 
-    // Add keyboard shortcut (Ctrl+Enter) to submit form
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.key === 'Enter') {
-            e.preventDefault();
-            if (loginForm) {
-                loginForm.submit();
-            }
-        }
-    });
+window.deleteFolder = function(id){
 
-    // Remember me functionality (optional)
-    const rememberMe = document.createElement('div');
-    rememberMe.className = 'remember-me';
-    rememberMe.style.marginBottom = '15px';
-    rememberMe.style.display = 'flex';
-    rememberMe.style.alignItems = 'center';
-    rememberMe.style.gap = '8px';
-    
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = 'remember';
-    checkbox.style.width = '16px';
-    checkbox.style.height = '16px';
-    checkbox.style.cursor = 'pointer';
-    
-    const label = document.createElement('label');
-    label.htmlFor = 'remember';
-    label.textContent = 'Remember me';
-    label.style.fontSize = '13px';
-    label.style.color = '#666';
-    label.style.cursor = 'pointer';
-    
-    rememberMe.appendChild(checkbox);
-    rememberMe.appendChild(label);
-    
-    // Insert remember me before register link
-    const registerLink = document.querySelector('.register-link');
-    if (registerLink) {
-        registerLink.parentNode.insertBefore(rememberMe, registerLink);
-    }
+    currentDeleteId = id;
+    currentDeleteType = 'folder';
+    currentAction = 'trash';
 
-    // Load saved email if "Remember me" was checked
-    const savedEmail = localStorage.getItem('savedEmail');
-    if (savedEmail && emailInput) {
-        emailInput.value = savedEmail;
-        checkbox.checked = true;
-    }
+    document.getElementById('deleteMessage').innerHTML =
+    'Are you sure you want to move this folder and all its contents to trash?';
 
-    // Save email when form is submitted
-    if (loginForm) {
-        loginForm.addEventListener('submit', function() {
-            if (checkbox.checked && emailInput) {
-                localStorage.setItem('savedEmail', emailInput.value);
-            } else {
-                localStorage.removeItem('savedEmail');
-            }
-        });
-    }
+    document.getElementById('deleteModal').style.display = 'flex';
+
+}
+
+window.deleteFile = function(id){
+
+    currentDeleteId = id;
+    currentDeleteType = 'file';
+    currentAction = 'trash';
+
+    document.getElementById('deleteMessage').innerHTML =
+    'Are you sure you want to move this file to trash?';
+
+    document.getElementById('deleteModal').style.display = 'flex';
+
+}
+
+
+/* =========================
+   CONFIRM DELETE BUTTON
+========================= */
+
+const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+if(confirmDeleteBtn){
+
+confirmDeleteBtn.addEventListener('click',function(){
+
+if(currentDeleteId && currentDeleteType){
+
+window.location.href =
+`delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=${currentAction}`;
+
+}
+
 });
 
-// Add CSS for loading state and ripple effect
-const style = document.createElement('style');
-style.textContent = `
-    .login-btn.loading {
-        opacity: 0.7;
-        cursor: not-allowed;
-        pointer-events: none;
-    }
-    
-    .ripple-effect {
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.4);
-        transform: scale(0);
-        animation: ripple-animation 0.6s ease-out;
-        pointer-events: none;
-    }
-    
-    @keyframes ripple-animation {
-        to {
-            transform: scale(4);
-            opacity: 0;
-        }
-    }
-    
-    .remember-me {
-        margin-bottom: 15px;
-        padding: 0 5px;
-    }
-    
-    .remember-me input[type="checkbox"] {
-        accent-color: #0038a8;
-    }
-    
-    .remember-me label:hover {
-        color: #0038a8;
-    }
-        
-`;
+}
 
-document.head.appendChild(style);
+
+/* =========================
+   RESTORE
+========================= */
+
+window.restoreFolder = function(id){
+
+if(confirm('Restore this folder and all its contents?')){
+
+window.location.href = `restore_item.php?type=folder&id=${id}`;
+
+}
+
+}
+
+window.restoreFile = function(id){
+
+if(confirm('Restore this file?')){
+
+window.location.href = `restore_item.php?type=file&id=${id}`;
+
+}
+
+}
+
+
+/* =========================
+   MOBILE SIDEBAR TOGGLE
+========================= */
+
+const mobileToggle = document.createElement('div');
+
+mobileToggle.className = 'mobile-menu-toggle';
+mobileToggle.innerHTML = '<i class="fas fa-bars"></i>';
+
+document.body.appendChild(mobileToggle);
+
+mobileToggle.addEventListener('click',function(){
+
+document.querySelector('.sidebar').classList.toggle('active');
+
+});
+
+
+/* =========================
+   CLICK OUTSIDE SIDEBAR
+========================= */
+
+document.addEventListener('click',function(event){
+
+const sidebar = document.querySelector('.sidebar');
+
+const isClickInside =
+sidebar.contains(event.target) ||
+mobileToggle.contains(event.target);
+
+if(!isClickInside && window.innerWidth <= 768){
+
+sidebar.classList.remove('active');
+
+}
+
+});
+
+
+/* =========================
+   CLOSE MODALS
+========================= */
+
+window.onclick = function(event){
+
+if(event.target.classList.contains('modal')){
+
+event.target.style.display = 'none';
+
+}
+
+}
+
+});
