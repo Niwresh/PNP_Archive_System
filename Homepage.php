@@ -341,6 +341,61 @@ $folder_tree = buildFolderTree($folders_list);
             margin: 0 3px;
             display: inline-block;
         }
+        
+        /* Rename Modal Styles */
+        #renameModal .modal-body {
+            padding: 20px;
+        }
+        
+        #currentNameDisplay {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 5px 0 20px 0;
+            color: #333;
+            word-break: break-all;
+            border: 1px solid #e9ecef;
+            font-size: 14px;
+        }
+        
+        #renameInput {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        #renameInput:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        #fileExtensionDisplay {
+            color: #666;
+            font-size: 12px;
+            margin-top: 8px;
+            padding-left: 5px;
+        }
+        
+        @media (max-width: 480px) {
+            #renameModal .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+            
+            #currentNameDisplay {
+                font-size: 13px;
+                padding: 10px;
+            }
+            
+            #renameInput {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1176,7 +1231,34 @@ $folder_tree = buildFolderTree($folders_list);
             </div>
         </div>
     </div>
-</body>
 
+    <!-- Rename Modal -->
+    <div class="modal" id="renameModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="renameModalTitle">Rename Item</h3>
+                <button class="close-btn" onclick="closeModal('renameModal')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="form-group">
+                    <label>Current Name:</label>
+                    <p id="currentNameDisplay" style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin: 5px 0 15px 0; color: #333; word-break: break-all;"></p>
+                </div>
+                <div class="form-group">
+                    <label for="renameInput">New Name:</label>
+                    <input type="text" id="renameInput" placeholder="Enter new name" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                    <small id="fileExtensionDisplay" style="color: #666; display: block; margin-top: 5px;"></small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="cancel-btn" onclick="closeModal('renameModal')">Cancel</button>
+                <button type="button" class="submit-btn" id="confirmRenameBtn">
+                    <i class="fas fa-edit"></i> Rename
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
 <script src="js/main.js"></script>
 </html>
