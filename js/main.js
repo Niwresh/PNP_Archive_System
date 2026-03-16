@@ -1,10 +1,9 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
     'use strict';
 
     /* =========================
        LOGIN VARIABLES
     ========================= */
-
     const loginForm = document.querySelector('form');
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
@@ -13,553 +12,566 @@ document.addEventListener('DOMContentLoaded', function () {
     /* =========================
        DRIVE VARIABLES
     ========================= */
-
     let currentDeleteId = null;
     let currentDeleteType = null;
     let currentAction = null;
+
     let currentRenameId = null;
     let currentRenameType = null;
     let currentRenameName = null;
 
+    /* =========================
+       MOBILE SIDEBAR
+    ========================= */
+    const sidebar = document.querySelector('.sidebar');
+    
+    function initMobileSidebar() {
+        if (!sidebar) return;
+        
+        // Remove existing toggle if any
+        const existingToggle = document.querySelector('.mobile-menu-toggle');
+        if (existingToggle) existingToggle.remove();
+        
+        // Create new toggle button
+        const toggle = document.createElement('div');
+        toggle.className = 'mobile-menu-toggle';
+        toggle.innerHTML = '<i class="fas fa-bars"></i>';
+        document.body.appendChild(toggle);
+        
+        // Toggle sidebar on click
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            sidebar.classList.toggle('active');
+            
+            // Change icon based on state
+            const icon = this.querySelector('i');
+            if (sidebar.classList.contains('active')) {
+                icon.className = 'fas fa-times';
+            } else {
+                icon.className = 'fas fa-bars';
+            }
+        });
+        
+        // Close sidebar when clicking outside
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768) {
+                if (!sidebar.contains(e.target) && !toggle.contains(e.target)) {
+                    sidebar.classList.remove('active');
+                    const icon = toggle.querySelector('i');
+                    if (icon) icon.className = 'fas fa-bars';
+                }
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('active');
+                const icon = toggle.querySelector('i');
+                if (icon) icon.className = 'fas fa-bars';
+            }
+        });
+        
+        // Handle touch events for mobile
+        if ('ontouchstart' in window) {
+            let touchStartX = 0;
+            let touchEndX = 0;
+            
+            document.addEventListener('touchstart', function(e) {
+                touchStartX = e.changedTouches[0].screenX;
+            }, false);
+            
+            document.addEventListener('touchend', function(e) {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, false);
+            
+            function handleSwipe() {
+                const swipeThreshold = 100;
+                if (touchEndX < touchStartX - swipeThreshold && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    const icon = toggle.querySelector('i');
+                    if (icon) icon.className = 'fas fa-bars';
+                } else if (touchEndX > touchStartX + swipeThreshold && !sidebar.classList.contains('active') && window.innerWidth <= 768) {
+                    sidebar.classList.add('active');
+                    const icon = toggle.querySelector('i');
+                    if (icon) icon.className = 'fas fa-times';
+                }
+            }
+        }
+    }
+    
+    initMobileSidebar();
 
     /* =========================
        FAB MENU
     ========================= */
-
-    window.toggleFabMenu = function () {
+    window.toggleFabMenu = function() {
         const fabMenu = document.getElementById('fabMenu');
         if (fabMenu) {
             fabMenu.classList.toggle('show');
         }
     };
 
-
-    /* =========================
-       MODALS
-    ========================= */
-
-    window.openFolderModal = function () {
-        const modal = document.getElementById('folderModal');
-        if (modal) {
-            modal.style.display = 'flex';
-        }
-    };
-
-    window.openUploadModal = function () {
-        const modal = document.getElementById('uploadModal');
-        if (modal) {
-            modal.style.display = 'flex';
-            setTimeout(function () {
-                if (window.toggleMonthField) {
-                    toggleMonthField();
-                }
-            }, 100);
-        }
-    };
-
-    window.closeModal = function (modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.style.display = 'none';
-        }
-    };
-
-
-    /* =========================
-       RENAME MODAL FUNCTIONS
-    ========================= */
-
-    window.renameFolder = function (id, currentName) {
-        currentRenameId = id;
-        currentRenameType = 'folder';
-        currentRenameName = currentName;
-        
-        const modal = document.getElementById('renameModal');
-        const title = document.getElementById('renameModalTitle');
-        const input = document.getElementById('renameInput');
-        const nameDisplay = document.getElementById('currentNameDisplay');
-        
-        if (modal && title && input && nameDisplay) {
-            title.textContent = 'Rename Folder';
-            input.value = currentName;
-            input.placeholder = 'Enter new folder name';
-            nameDisplay.textContent = currentName;
-            modal.style.display = 'flex';
-        }
-    };
-
-    window.renameFile = function (id, currentName) {
-        currentRenameId = id;
-        currentRenameType = 'file';
-        currentRenameName = currentName;
-        
-        // Extract name without extension for display
-        const lastDotIndex = currentName.lastIndexOf('.');
-        const nameWithoutExt = lastDotIndex > 0 ? currentName.substring(0, lastDotIndex) : currentName;
-        const extension = lastDotIndex > 0 ? currentName.substring(lastDotIndex) : '';
-        
-        const modal = document.getElementById('renameModal');
-        const title = document.getElementById('renameModalTitle');
-        const input = document.getElementById('renameInput');
-        const nameDisplay = document.getElementById('currentNameDisplay');
-        const extDisplay = document.getElementById('fileExtensionDisplay');
-        
-        if (modal && title && input && nameDisplay && extDisplay) {
-            title.textContent = 'Rename File';
-            input.value = nameWithoutExt;
-            input.placeholder = 'Enter new file name (without extension)';
-            nameDisplay.textContent = currentName;
-            extDisplay.textContent = extension ? `Extension: ${extension}` : '';
-            extDisplay.style.display = extension ? 'block' : 'none';
-            modal.style.display = 'flex';
-        }
-    };
-
-    // Confirm rename button
-    const confirmRenameBtn = document.getElementById('confirmRenameBtn');
-    if (confirmRenameBtn) {
-        confirmRenameBtn.addEventListener('click', function () {
-            const input = document.getElementById('renameInput');
-            const newName = input.value.trim();
-            
-            if (!newName) {
-                alert('Please enter a name');
-                return;
-            }
-            
-            if (currentRenameId && currentRenameType) {
-                // Show loading state
-                const originalHtml = confirmRenameBtn.innerHTML;
-                confirmRenameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Renaming...';
-                confirmRenameBtn.disabled = true;
-                
-                if (currentRenameType === 'folder') {
-                    window.location.href = `rename_folder.php?id=${currentRenameId}&name=${encodeURIComponent(newName)}`;
-                } else if (currentRenameType === 'file') {
-                    // For files, get the extension from the original name
-                    const lastDotIndex = currentRenameName.lastIndexOf('.');
-                    const extension = lastDotIndex > 0 ? currentRenameName.substring(lastDotIndex) : '';
-                    const fullNewName = newName + extension;
-                    window.location.href = `rename_file.php?id=${currentRenameId}&name=${encodeURIComponent(fullNewName)}`;
-                }
-            }
-        });
-    }
-
-
-    /* =========================
-       FILE NAME AUTO UPDATE
-    ========================= */
-
-    window.updateFileName = function () {
-        const fileInput = document.getElementById('fileInput');
-        const customFilename = document.getElementById('customFilename');
-
-        if (fileInput && fileInput.files.length > 0) {
-            const fullName = fileInput.files[0].name;
-            const nameWithoutExt = fullName.substring(0, fullName.lastIndexOf('.')) || fullName;
-
-            if (customFilename && !customFilename.value) {
-                customFilename.value = nameWithoutExt;
-            }
-        }
-    };
-
-
-    /* =========================
-       MONTH / YEAR FIELD LOGIC
-    ========================= */
-
-    window.toggleMonthField = function () {
-        const folderSelect = document.getElementById('folderSelect');
-        const monthField = document.getElementById('monthField');
-        const yearField = document.getElementById('yearField');
-        const yearInput = document.getElementById('yearInput');
-
-        if (!folderSelect) {
-            if (monthField) monthField.style.display = 'block';
-            if (yearField) yearField.style.display = 'none';
-            if (yearInput) yearInput.removeAttribute('name');
-            return;
-        }
-
-        if (folderSelect.value) {
-            const selectedOption = folderSelect.options[folderSelect.selectedIndex];
-            const hasYear = selectedOption.getAttribute('data-has-year') === '1';
-
-            if (hasYear) {
-                if (yearField) yearField.style.display = 'none';
-                if (yearInput) yearInput.removeAttribute('name');
-                if (monthField) monthField.style.display = 'block';
-            } else {
-                if (yearField) yearField.style.display = 'block';
-                if (yearInput) yearInput.setAttribute('name', 'year');
-                if (monthField) monthField.style.display = 'block';
-            }
-        } else {
-            if (yearField) yearField.style.display = 'block';
-            if (yearInput) yearInput.setAttribute('name', 'year');
-            if (monthField) monthField.style.display = 'block';
-        }
-    };
-
-
-    /* =========================
-       VIEW DETAILS
-    ========================= */
-
-    window.showFolderDetails = function (folderId) {
-        window.location.href = 'folder_details.php?id=' + folderId;
-    };
-
-    window.showFileDetails = function (fileId) {
-        window.location.href = 'file_details.php?id=' + fileId;
-    };
-
-
-    /* =========================
-       DELETE FUNCTIONS
-    ========================= */
-
-    window.deleteFolder = function (id) {
-        currentDeleteId = id;
-        currentDeleteType = 'folder';
-        currentAction = 'trash';
-
-        const message = document.getElementById('deleteMessage');
-        const modal = document.getElementById('deleteModal');
-
-        if (message) {
-            message.innerHTML = 'Are you sure you want to move this folder and all its contents to trash?';
-        }
-
-        if (modal) {
-            modal.style.display = 'flex';
-        }
-    };
-
-    window.deleteFile = function (id) {
-        currentDeleteId = id;
-        currentDeleteType = 'file';
-        currentAction = 'trash';
-
-        const message = document.getElementById('deleteMessage');
-        const modal = document.getElementById('deleteModal');
-
-        if (message) {
-            message.innerHTML = 'Are you sure you want to move this file to trash?';
-        }
-
-        if (modal) {
-            modal.style.display = 'flex';
-        }
-    };
-
-
-    /* =========================
-       PERMANENT DELETE FUNCTIONS
-    ========================= */
-
-    window.permanentlyDeleteFolder = function (id) {
-        currentDeleteId = id;
-        currentDeleteType = 'folder';
-        currentAction = 'permanent';
-        
-        const modal = document.getElementById('permanentDeleteModal');
-        if (modal) {
-            modal.style.display = 'flex';
-        }
-    };
-
-    window.permanentlyDeleteFile = function (id) {
-        currentDeleteId = id;
-        currentDeleteType = 'file';
-        currentAction = 'permanent';
-        
-        const modal = document.getElementById('permanentDeleteModal');
-        if (modal) {
-            modal.style.display = 'flex';
-        }
-    };
-
-
-    /* =========================
-       CONFIRM DELETE BUTTONS
-    ========================= */
-
-    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-    if (confirmDeleteBtn) {
-        confirmDeleteBtn.addEventListener('click', function () {
-            if (currentDeleteId && currentDeleteType) {
-                window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=${currentAction}`;
-            }
-        });
-    }
-
-    const confirmPermanentDeleteBtn = document.getElementById('confirmPermanentDeleteBtn');
-    if (confirmPermanentDeleteBtn) {
-        confirmPermanentDeleteBtn.addEventListener('click', function () {
-            if (currentDeleteId && currentDeleteType) {
-                window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=permanent`;
-            }
-        });
-    }
-
-    const confirmEmptyTrashBtn = document.getElementById('confirmEmptyTrashBtn');
-    if (confirmEmptyTrashBtn) {
-        confirmEmptyTrashBtn.addEventListener('click', function () {
-            window.location.href = 'empty_trash.php';
-        });
-    }
-
-
-    /* =========================
-       RESTORE FUNCTIONS
-    ========================= */
-
-    window.restoreFolder = function (id) {
-        if (confirm('Restore this folder and all its contents?')) {
-            window.location.href = `restore_item.php?type=folder&id=${id}`;
-        }
-    };
-
-    window.restoreFile = function (id) {
-        if (confirm('Restore this file?')) {
-            window.location.href = `restore_item.php?type=file&id=${id}`;
-        }
-    };
-
-
-    /* =========================
-       EMPTY TRASH
-    ========================= */
-
-    window.emptyTrash = function () {
-        const modal = document.getElementById('emptyTrashModal');
-        if (modal) {
-            modal.style.display = 'flex';
-        }
-    };
-
-
-    /* =========================
-       MOBILE SIDEBAR TOGGLE
-    ========================= */
-
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar) {
-        const mobileToggle = document.createElement('div');
-        mobileToggle.className = 'mobile-menu-toggle';
-        mobileToggle.innerHTML = '<i class="fas fa-bars"></i>';
-        document.body.appendChild(mobileToggle);
-
-        mobileToggle.addEventListener('click', function () {
-            sidebar.classList.toggle('active');
-        });
-
-        // Close sidebar when clicking outside
-        document.addEventListener('click', function (event) {
-            const isClickInside = sidebar.contains(event.target) || mobileToggle.contains(event.target);
-            if (!isClickInside && window.innerWidth <= 768) {
-                sidebar.classList.remove('active');
-            }
-        });
-
-        // Handle window resize
-        window.addEventListener('resize', function () {
-            if (window.innerWidth > 768) {
-                sidebar.classList.remove('active');
-            }
-        });
-    }
-
-
-    /* =========================
-       CLOSE MODALS WHEN CLICKING OUTSIDE
-    ========================= */
-
-    window.onclick = function (event) {
-        if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
-        }
-    };
-
-
-    /* =========================
-       CLOSE FAB MENU WHEN CLICKING OUTSIDE
-    ========================= */
-
+    // Close FAB menu when clicking outside
     document.addEventListener('click', function(event) {
-        const fabMenu = document.getElementById('fabMenu');
         const fab = document.querySelector('.fab');
+        const fabMenu = document.getElementById('fabMenu');
         
         if (fabMenu && fab && !fab.contains(event.target) && !fabMenu.contains(event.target)) {
             fabMenu.classList.remove('show');
         }
     });
 
+    // Close FAB menu on scroll
+    window.addEventListener('scroll', function() {
+        const fabMenu = document.getElementById('fabMenu');
+        if (fabMenu && fabMenu.classList.contains('show')) {
+            fabMenu.classList.remove('show');
+        }
+    });
 
     /* =========================
-       INPUT VALIDATION FOR LOGIN
+       MODALS
     ========================= */
+    window.openFolderModal = function() {
+        const modal = document.getElementById('folderModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+    };
 
-    if (emailInput) {
-        emailInput.addEventListener('input', function() {
-            validateEmail(this);
-        });
-    }
-
-    if (passwordInput) {
-        passwordInput.addEventListener('input', function() {
-            validatePassword(this);
-        });
-    }
-
-    if (loginForm) {
-        loginForm.addEventListener('submit', function(e) {
-            if (!validateForm()) {
-                e.preventDefault();
-            }
-        });
-    }
-
-    if (loginBtn) {
-        loginBtn.addEventListener('click', function(e) {
-            if (loginForm && loginForm.checkValidity()) {
-                this.classList.add('loading');
-                this.textContent = 'LOGGING IN...';
-            }
-        });
-    }
-
-    // Auto-hide error messages after 5 seconds
-    const errorMessage = document.querySelector('.error-message');
-    if (errorMessage) {
-        setTimeout(function() {
-            errorMessage.style.transition = 'opacity 0.5s';
-            errorMessage.style.opacity = '0';
+    window.openUploadModal = function() {
+        const modal = document.getElementById('uploadModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
             setTimeout(function() {
-                if (errorMessage.parentNode) {
-                    errorMessage.remove();
-                }
-            }, 500);
-        }, 5000);
-    }
+                if (window.toggleMonthField) toggleMonthField();
+            }, 100);
+        }
+    };
 
-    // Add focus effect to input groups
-    const inputGroups = document.querySelectorAll('.input-group');
-    inputGroups.forEach(group => {
-        const input = group.querySelector('input');
-        const label = group.querySelector('label');
-        
-        if (input && label) {
-            if (input.value) {
-                label.style.color = '#0038a8';
-            }
-            
-            input.addEventListener('focus', function() {
-                label.style.color = '#0038a8';
-            });
-            
-            input.addEventListener('blur', function() {
-                if (!this.value) {
-                    label.style.color = '#333';
-                }
+    window.closeModal = function(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = ''; // Restore scrolling
+        }
+    };
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modals = document.querySelectorAll('.modal[style*="flex"]');
+            modals.forEach(modal => {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
             });
         }
     });
 
-    // Remember me functionality
-    const savedEmail = localStorage.getItem('savedEmail');
-    const rememberCheckbox = document.getElementById('remember');
-    
-    if (savedEmail && emailInput) {
-        emailInput.value = savedEmail;
-        if (rememberCheckbox) rememberCheckbox.checked = true;
-    }
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    };
 
-    if (loginForm && rememberCheckbox) {
-        loginForm.addEventListener('submit', function() {
-            if (rememberCheckbox.checked && emailInput) {
-                localStorage.setItem('savedEmail', emailInput.value);
+    /* =========================
+       RENAME FUNCTIONS
+    ========================= */
+    window.renameFolder = function(id, name) {
+        currentRenameId = id;
+        currentRenameType = 'folder';
+        currentRenameName = name;
+
+        const modal = document.getElementById('renameModal');
+        const title = document.getElementById('renameModalTitle');
+        const input = document.getElementById('renameInput');
+        const display = document.getElementById('currentNameDisplay');
+        const extDisplay = document.getElementById('fileExtensionDisplay');
+
+        if (modal) {
+            title.textContent = "Rename Folder";
+            input.value = name;
+            display.textContent = name;
+            if (extDisplay) extDisplay.style.display = "none";
+            modal.style.display = "flex";
+            document.body.style.overflow = 'hidden';
+            
+            // Auto-select text in input
+            setTimeout(() => {
+                input.focus();
+                input.select();
+            }, 200);
+        }
+    };
+
+    window.renameFile = function(id, name) {
+        currentRenameId = id;
+        currentRenameType = 'file';
+        currentRenameName = name;
+
+        const lastDot = name.lastIndexOf('.');
+        const filename = lastDot > 0 ? name.substring(0, lastDot) : name;
+        const extension = lastDot > 0 ? name.substring(lastDot) : '';
+
+        const modal = document.getElementById('renameModal');
+        const title = document.getElementById('renameModalTitle');
+        const input = document.getElementById('renameInput');
+        const display = document.getElementById('currentNameDisplay');
+        const extDisplay = document.getElementById('fileExtensionDisplay');
+
+        if (modal) {
+            title.textContent = "Rename File";
+            input.value = filename;
+            display.textContent = name;
+
+            if (extension) {
+                extDisplay.textContent = "Extension: " + extension;
+                extDisplay.style.display = "block";
             } else {
-                localStorage.removeItem('savedEmail');
+                extDisplay.style.display = "none";
+            }
+
+            modal.style.display = "flex";
+            document.body.style.overflow = 'hidden';
+            
+            // Auto-select text in input
+            setTimeout(() => {
+                input.focus();
+                input.select();
+            }, 200);
+        }
+    };
+
+    const confirmRenameBtn = document.getElementById("confirmRenameBtn");
+    if (confirmRenameBtn) {
+        confirmRenameBtn.addEventListener("click", function() {
+            const input = document.getElementById("renameInput");
+            const newName = input.value.trim();
+
+            if (!newName) {
+                alert("Please enter a name");
+                return;
+            }
+
+            if (currentRenameType === "folder") {
+                window.location.href = `rename_folder.php?id=${currentRenameId}&name=${encodeURIComponent(newName)}`;
+            }
+
+            if (currentRenameType === "file") {
+                const lastDot = currentRenameName.lastIndexOf('.');
+                const ext = lastDot > 0 ? currentRenameName.substring(lastDot) : "";
+                const finalName = newName + ext;
+                window.location.href = `rename_file.php?id=${currentRenameId}&name=${encodeURIComponent(finalName)}`;
             }
         });
     }
 
+    // Allow Enter key in rename input
+    const renameInput = document.getElementById('renameInput');
+    if (renameInput) {
+        renameInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmRenameBtn.click();
+            }
+        });
+    }
 
     /* =========================
-       HELPER FUNCTIONS
+       FILE NAME AUTO UPDATE
     ========================= */
+    window.updateFileName = function() {
+        const fileInput = document.getElementById("fileInput");
+        const customName = document.getElementById("customFilename");
 
+        if (fileInput && fileInput.files.length > 0) {
+            const full = fileInput.files[0].name;
+            const name = full.substring(0, full.lastIndexOf(".")) || full;
+
+            if (customName && !customName.value) {
+                customName.value = name;
+            }
+        }
+    };
+
+    /* =========================
+       MONTH / YEAR FIELD
+    ========================= */
+    window.toggleMonthField = function() {
+        const folder = document.getElementById("folderSelect");
+        const month = document.getElementById("monthField");
+        const year = document.getElementById("yearField");
+        const yearInput = document.getElementById("yearInput");
+
+        if (!folder) {
+            if (month) month.style.display = "block";
+            if (year) year.style.display = "none";
+            return;
+        }
+
+        if (folder.value) {
+            const option = folder.options[folder.selectedIndex];
+            const hasYear = option.getAttribute("data-has-year") === "1";
+
+            if (hasYear) {
+                year.style.display = "none";
+                yearInput.removeAttribute("name");
+            } else {
+                year.style.display = "block";
+                yearInput.setAttribute("name", "year");
+            }
+        }
+    };
+
+    /* =========================
+       DELETE FUNCTIONS
+    ========================= */
+    window.deleteFolder = function(id) {
+        currentDeleteId = id;
+        currentDeleteType = "folder";
+        currentAction = "trash";
+
+        const modal = document.getElementById("deleteModal");
+        const message = document.getElementById("deleteMessage");
+        if (modal) {
+            if (message) message.textContent = "Are you sure you want to move this folder to trash?";
+            modal.style.display = "flex";
+            document.body.style.overflow = 'hidden';
+        }
+    };
+
+    window.deleteFile = function(id) {
+        currentDeleteId = id;
+        currentDeleteType = "file";
+        currentAction = "trash";
+
+        const modal = document.getElementById("deleteModal");
+        const message = document.getElementById("deleteMessage");
+        if (modal) {
+            if (message) message.textContent = "Are you sure you want to move this file to trash?";
+            modal.style.display = "flex";
+            document.body.style.overflow = 'hidden';
+        }
+    };
+
+    /* =========================
+       CONFIRM DELETE
+    ========================= */
+    const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener("click", function() {
+            if (currentDeleteId) {
+                window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=${currentAction}`;
+            }
+        });
+    }
+
+    /* =========================
+       PERMANENT DELETE FUNCTIONS
+    ========================= */
+    window.permanentlyDeleteFolder = function(id) {
+        currentDeleteId = id;
+        currentDeleteType = "folder";
+        currentAction = "permanent";
+
+        const modal = document.getElementById("permanentDeleteModal");
+        if (modal) {
+            modal.style.display = "flex";
+            document.body.style.overflow = 'hidden';
+        }
+    };
+
+    window.permanentlyDeleteFile = function(id) {
+        currentDeleteId = id;
+        currentDeleteType = "file";
+        currentAction = "permanent";
+
+        const modal = document.getElementById("permanentDeleteModal");
+        if (modal) {
+            modal.style.display = "flex";
+            document.body.style.overflow = 'hidden';
+        }
+    };
+
+    const confirmPermanentDeleteBtn = document.getElementById("confirmPermanentDeleteBtn");
+    if (confirmPermanentDeleteBtn) {
+        confirmPermanentDeleteBtn.addEventListener("click", function() {
+            if (currentDeleteId) {
+                window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}&action=${currentAction}`;
+            }
+        });
+    }
+
+    /* =========================
+       RESTORE FUNCTIONS
+    ========================= */
+    window.restoreFolder = function(id) {
+        if (confirm("Restore this folder?")) {
+            window.location.href = `restore_item.php?type=folder&id=${id}`;
+        }
+    };
+
+    window.restoreFile = function(id) {
+        if (confirm("Restore this file?")) {
+            window.location.href = `restore_item.php?type=file&id=${id}`;
+        }
+    };
+
+    /* =========================
+       EMPTY TRASH
+    ========================= */
+    window.emptyTrash = function() {
+        const modal = document.getElementById("emptyTrashModal");
+        if (modal) {
+            modal.style.display = "flex";
+            document.body.style.overflow = 'hidden';
+        }
+    };
+
+    const confirmEmptyTrashBtn = document.getElementById("confirmEmptyTrashBtn");
+    if (confirmEmptyTrashBtn) {
+        confirmEmptyTrashBtn.addEventListener("click", function() {
+            window.location.href = "empty_trash.php";
+        });
+    }
+
+    /* =========================
+       DETAILS FUNCTIONS
+    ========================= */
+    window.showFolderDetails = function(id) {
+        // Implement folder details functionality
+        alert("Folder details feature coming soon!");
+    };
+
+    window.showFileDetails = function(id) {
+        // Implement file details functionality
+        alert("File details feature coming soon!");
+    };
+
+    /* =========================
+       LOGIN VALIDATION
+    ========================= */
     function validateEmail(input) {
-        const email = input.value.trim();
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        
-        removeError(input);
-        
-        if (email && !emailPattern.test(email)) {
-            showError(input, 'Please enter a valid email address');
+        const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!pattern.test(input.value.trim())) {
+            showError(input, "Invalid email");
             return false;
         }
+        removeError(input);
         return true;
     }
 
     function validatePassword(input) {
-        const password = input.value;
-        
-        removeError(input);
-        
-        if (password && password.length < 6) {
-            showError(input, 'Password must be at least 6 characters');
+        if (input.value.length < 6) {
+            showError(input, "Minimum 6 characters");
             return false;
         }
+        removeError(input);
         return true;
     }
 
     function validateForm() {
-        let isValid = true;
-        
-        if (!emailInput.value.trim()) {
-            showError(emailInput, 'Email is required');
-            isValid = false;
-        } else if (!validateEmail(emailInput)) {
-            isValid = false;
-        }
-        
-        if (!passwordInput.value) {
-            showError(passwordInput, 'Password is required');
-            isValid = false;
-        } else if (!validatePassword(passwordInput)) {
-            isValid = false;
-        }
-        
-        return isValid;
+        let valid = true;
+        if (!validateEmail(emailInput)) valid = false;
+        if (!validatePassword(passwordInput)) valid = false;
+        return valid;
     }
 
+    if (loginForm) {
+        loginForm.addEventListener("submit", function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+            }
+        });
+
+        // Real-time validation
+        if (emailInput) {
+            emailInput.addEventListener("blur", function() {
+                validateEmail(this);
+            });
+        }
+
+        if (passwordInput) {
+            passwordInput.addEventListener("blur", function() {
+                validatePassword(this);
+            });
+        }
+    }
+
+    /* =========================
+       ERROR DISPLAY
+    ========================= */
     function showError(input, message) {
         removeError(input);
-        
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'input-error';
-        errorDiv.style.color = '#ce1126';
-        errorDiv.style.fontSize = '12px';
-        errorDiv.style.marginTop = '5px';
-        errorDiv.style.marginLeft = '2px';
-        errorDiv.textContent = message;
-        
-        input.style.borderColor = '#ce1126';
-        input.parentNode.insertBefore(errorDiv, input.nextSibling);
+        const div = document.createElement("div");
+        div.className = "input-error";
+        div.style.color = "#ce1126";
+        div.style.fontSize = "12px";
+        div.style.marginTop = "5px";
+        div.textContent = message;
+        input.parentNode.appendChild(div);
+        input.style.borderColor = "#ce1126";
     }
 
     function removeError(input) {
-        input.style.borderColor = '#e0e0e0';
-        
-        const nextElement = input.nextElementSibling;
-        if (nextElement && nextElement.className === 'input-error') {
-            nextElement.remove();
-        }
+        input.style.borderColor = "#e0e0e0";
+        const err = input.parentNode.querySelector(".input-error");
+        if (err) err.remove();
     }
 
+    /* =========================
+       TOUCH DEVICE OPTIMIZATIONS
+    ========================= */
+    if ('ontouchstart' in window) {
+        document.querySelectorAll('button, .action-btn, .filter-btn, .quick-action-btn, .fab, .fab-menu-item').forEach(el => {
+            el.addEventListener('touchstart', function() {
+                // Prevent double-tap zoom on buttons
+                this.style.transform = 'scale(0.95)';
+            });
+            
+            el.addEventListener('touchend', function() {
+                this.style.transform = '';
+            });
+            
+            el.addEventListener('touchcancel', function() {
+                this.style.transform = '';
+            });
+        });
+    }
+
+    /* =========================
+       INITIALIZE ON PAGE LOAD
+    ========================= */
+    // Set minimum height for main content
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.style.minHeight = window.innerHeight + 'px';
+    }
+
+    // Handle orientation change
+    window.addEventListener('orientationchange', function() {
+        setTimeout(function() {
+            if (mainContent) {
+                mainContent.style.minHeight = window.innerHeight + 'px';
+            }
+        }, 200);
+    });
+
+    // Prevent zoom on input focus for iOS
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+            el.addEventListener('focus', function() {
+                this.style.fontSize = '16px';
+            });
+        });
+    }
+
+    console.log('PNP Archive: Mobile responsive initialized');
 });

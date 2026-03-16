@@ -93,6 +93,7 @@ if ($storage_percent > 0 && $storage_percent < 1) {
 }
 
 $storage_percent = min(100, round($storage_percent, 2));
+
 // Determine storage bar color based on usage
 $storage_bar_color = '#4caf50'; // Green for normal usage
 if ($storage_percent > 80) {
@@ -309,15 +310,42 @@ $folder_tree = buildFolderTree($folders_list);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>PNP Archive - Google Drive Style</title>
-    <link rel="stylesheet" href="css/Home.css">
+    <link rel="stylesheet" href="css/Home.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-
+    <style>
+        /* Additional mobile optimizations */
+        @media (max-width: 768px) {
+            .file-modified::before, .file-size::before {
+                content: attr(data-label) ': ';
+                opacity: 0.7;
+                margin-right: 5px;
+                font-weight: normal;
+            }
+            
+            .file-item {
+                position: relative;
+            }
+            
+            .file-actions {
+                position: relative;
+                z-index: 2;
+            }
+            
+            .file-name a {
+                max-width: calc(100% - 30px);
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="dashboard">
-        <!-- Sidebar -->
+
+        <!-- Sidebar (Mobile toggle will be added by JS) -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <h2><i class="fas fa-archive"></i> PNP Archive</h2>
@@ -326,23 +354,23 @@ $folder_tree = buildFolderTree($folders_list);
             <ul class="sidebar-menu">
                 <li class="<?php echo $view == 'dashboard' ? 'active' : ''; ?>">
                     <a href="homepage.php?view=dashboard">
-                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                        <i class="fas fa-tachometer-alt"></i> <span>Dashboard</span>
                     </a>
                 </li>
                 <li class="<?php echo $view == 'drive' ? 'active' : ''; ?>">
                     <a href="homepage.php?view=drive">
-                        <i class="fas fa-folder"></i> My Drive
+                        <i class="fas fa-folder"></i> <span>My Drive</span>
                     </a>
                 </li>
                 <li class="<?php echo $view == 'trash' ? 'active' : ''; ?>">
                     <a href="homepage.php?view=trash">
-                        <i class="fas fa-trash"></i> Trash 
+                        <i class="fas fa-trash"></i> <span>Trash</span>
                         <?php if ($trash_files + $trash_folders > 0): ?>
                             <span class="trash-badge"><?php echo $trash_files + $trash_folders; ?></span>
                         <?php endif; ?>
                     </a>
                 </li>
-                <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
 
             <!-- Enhanced Storage Info -->
@@ -537,7 +565,7 @@ $folder_tree = buildFolderTree($folders_list);
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                             <h3 style="color: white; margin: 0;">
                                 <i class="fas fa-trash"></i> Trash Bin
-                                <small style="font-size: 14px; opacity: 0.7; margin-left: 10px;">Items are automatically deleted after 30 days</small>
+                                <small style="font-size: 14px; opacity: 0.7; margin-left: 10px; display: inline-block;">Items are automatically deleted after 30 days</small>
                             </h3>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <a href="homepage.php?view=trash&trash_filter=all" class="filter-btn <?php echo $trash_filter == 'all' ? 'active' : ''; ?>">All</a>
@@ -572,16 +600,16 @@ $folder_tree = buildFolderTree($folders_list);
                                         <span>
                                             <?php echo htmlspecialchars($folder['folder_name']); ?>
                                             <?php if ($days_until_deletion > 0): ?>
-                                                <span style="font-size: 11px; opacity: 0.7; margin-left: 5px;">(Deletes in <?php echo $days_until_deletion; ?> days)</span>
+                                                <span class="badge" style="margin-left: 5px;">Deletes in <?php echo $days_until_deletion; ?> days</span>
                                             <?php else: ?>
-                                                <span style="font-size: 11px; color: #ff4757; margin-left: 5px;">(Will be deleted soon)</span>
+                                                <span class="badge" style="background: #ff4757; color: white; margin-left: 5px;">Will be deleted soon</span>
                                             <?php endif; ?>
                                         </span>
                                     </div>
-                                    <div class="file-modified">
+                                    <div class="file-modified" data-label="Deleted on">
                                         <?php echo date('M d, Y', strtotime($folder['deleted_at'])); ?>
                                     </div>
-                                    <div class="file-size">Folder</div>
+                                    <div class="file-size" data-label="Type">Folder</div>
                                     <div class="file-actions">
                                         <button class="action-btn" onclick="restoreFolder(<?php echo $folder['id']; ?>)" title="Restore">
                                             <i class="fas fa-undo-alt"></i>
@@ -610,16 +638,16 @@ $folder_tree = buildFolderTree($folders_list);
                                             <span>
                                                 <?php echo htmlspecialchars($file['file_name']); ?>
                                                 <?php if ($days_until_deletion > 0): ?>
-                                                    <span style="font-size: 11px; opacity: 0.7; margin-left: 5px;">(Deletes in <?php echo $days_until_deletion; ?> days)</span>
+                                                    <span class="badge" style="margin-left: 5px;">Deletes in <?php echo $days_until_deletion; ?> days</span>
                                                 <?php else: ?>
-                                                    <span style="font-size: 11px; color: #ff4757; margin-left: 5px;">(Will be deleted soon)</span>
+                                                    <span class="badge" style="background: #ff4757; color: white; margin-left: 5px;">Will be deleted soon</span>
                                                 <?php endif; ?>
                                             </span>
                                         </div>
-                                        <div class="file-modified">
+                                        <div class="file-modified" data-label="Deleted on">
                                             <?php echo date('M d, Y', strtotime($file['deleted_at'])); ?>
                                         </div>
-                                        <div class="file-size"><?php echo formatFileSize($file_size); ?></div>
+                                        <div class="file-size" data-label="Size"><?php echo formatFileSize($file_size); ?></div>
                                         <div class="file-actions">
                                             <button class="action-btn" onclick="restoreFile(<?php echo $file['id']; ?>)" title="Restore">
                                                 <i class="fas fa-undo-alt"></i>
@@ -683,7 +711,7 @@ $folder_tree = buildFolderTree($folders_list);
                                 <?php endif; ?>
                             </div>
                             
-                            <!-- Semester Filter Dropdown (Now applies to both folders and files) -->
+                            <!-- Semester Filter Dropdown -->
                             <div class="filter-dropdown semester-filter">
                                 <i class="fas fa-layer-group"></i>
                                 <select name="semester" onchange="this.form.submit()" <?php echo empty($year_filter) ? 'disabled' : ''; ?>>
@@ -708,7 +736,7 @@ $folder_tree = buildFolderTree($folders_list);
                         
                         <!-- Active Filters Display -->
                         <?php if (!empty($year_filter) || !empty($semester_filter)): ?>
-                            <div class="filter-info" style="margin-top: 10px; padding: 5px 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                            <div class="filter-info">
                                 <i class="fas fa-filter"></i> Active Filters: 
                                 <?php if (!empty($year_filter)): ?>
                                     <span class="filter-tag">Year: <?php echo $year_filter; ?></span>
@@ -764,10 +792,10 @@ $folder_tree = buildFolderTree($folders_list);
                                             <?php endif; ?>
                                         </a>
                                     </div>
-                                    <div class="file-modified">
+                                    <div class="file-modified" data-label="Modified">
                                         <?php echo date('M d, Y', strtotime($folder['created_at'])); ?>
                                     </div>
-                                    <div class="file-size">--</div>
+                                    <div class="file-size" data-label="Size">--</div>
                                     <div class="file-actions">
                                         <button class="action-btn" onclick="renameFolder(<?php echo $folder['id']; ?>, '<?php echo htmlspecialchars(addslashes($folder['folder_name'])); ?>')" title="Rename">
                                             <i class="fas fa-edit"></i>
@@ -823,10 +851,10 @@ $folder_tree = buildFolderTree($folders_list);
                                                 <?php endif; ?>
                                             </a>
                                         </div>
-                                        <div class="file-modified">
+                                        <div class="file-modified" data-label="Modified">
                                             <?php echo date('M d, Y', strtotime($file['uploaded_at'])); ?>
                                         </div>
-                                        <div class="file-size"><?php echo formatFileSize($file_size); ?></div>
+                                        <div class="file-size" data-label="Size"><?php echo formatFileSize($file_size); ?></div>
                                         <div class="file-actions">
                                             <a href="<?php echo htmlspecialchars($file['file_path']); ?>" download class="action-btn" title="Download">
                                                 <i class="fas fa-download"></i>
@@ -939,7 +967,7 @@ $folder_tree = buildFolderTree($folders_list);
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <small style="color: #666; display: block; margin-top: 5px;">Select month for this folder (optional)</small>
+                        <small>Select month for this folder (optional)</small>
                     </div>
                 <?php else: ?>
                     <!-- Subfolder Creation - Inherit from parent -->
@@ -965,7 +993,7 @@ $folder_tree = buildFolderTree($folders_list);
                         </div>
                     <?php endif; ?>
                     
-                    <!-- Month Selection for Subfolder (can override parent's month or set if parent doesn't have one) -->
+                    <!-- Month Selection for Subfolder -->
                     <div class="form-group" id="subfolderMonthField">
                         <label>Month</label>
                         <select name="month" id="subfolderMonth">
@@ -983,7 +1011,7 @@ $folder_tree = buildFolderTree($folders_list);
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <small style="color: #666; display: block; margin-top: 5px;">
+                        <small>
                             <?php echo !empty($parent_info['month']) ? 'Select a different month to override parent, or leave empty to use parent month' : 'Select month for this folder (optional)'; ?>
                         </small>
                     </div>
@@ -1028,7 +1056,7 @@ $folder_tree = buildFolderTree($folders_list);
                 <div class="form-group">
                     <label>Custom File Name (Optional)</label>
                     <input type="text" name="custom_filename" id="customFilename" placeholder="Enter custom name without extension">
-                    <small style="color: #666; display: block; margin-top: 5px;">Leave empty to use original filename</small>
+                    <small>Leave empty to use original filename</small>
                 </div>
                 
                 <?php if (!$current_folder_id): ?>
@@ -1066,14 +1094,14 @@ $folder_tree = buildFolderTree($folders_list);
                         <option value="11">November</option>
                         <option value="12">December</option>
                     </select>
-                    <small style="color: #666; display: block; margin-top: 5px;">Select the month for this file</small>
+                    <small>Select the month for this file</small>
                 </div>
                 
-                <!-- Year Field (Hidden by default, shown when needed) -->
+                <!-- Year Field -->
                 <div class="form-group" id="yearField" style="display: none;">
                     <label>Year</label>
                     <input type="number" name="year" id="yearInput" placeholder="Enter year" min="2000" max="<?php echo date('Y'); ?>">
-                    <small style="color: #666; display: block; margin-top: 5px;">Enter the year for this file</small>
+                    <small>Enter the year for this file</small>
                 </div>
                 
                 <?php if ($current_folder_id): ?>
@@ -1121,7 +1149,7 @@ $folder_tree = buildFolderTree($folders_list);
                 <button class="close-btn" onclick="closeModal('permanentDeleteModal')">&times;</button>
             </div>
             <div class="delete-content">
-                <p style="color: #ff4757; font-weight: bold;">This action cannot be undone!</p>
+                <p class="warning">This action cannot be undone!</p>
                 <p>Are you sure you want to permanently delete this item?</p>
             </div>
             <div class="modal-footer">
@@ -1139,7 +1167,7 @@ $folder_tree = buildFolderTree($folders_list);
                 <button class="close-btn" onclick="closeModal('emptyTrashModal')">&times;</button>
             </div>
             <div class="delete-content">
-                <p style="color: #ff4757; font-weight: bold;">This action cannot be undone!</p>
+                <p class="warning">This action cannot be undone!</p>
                 <p>Are you sure you want to permanently delete all items in trash?</p>
             </div>
             <div class="modal-footer">
@@ -1156,15 +1184,15 @@ $folder_tree = buildFolderTree($folders_list);
                 <h3 id="renameModalTitle">Rename Item</h3>
                 <button class="close-btn" onclick="closeModal('renameModal')">&times;</button>
             </div>
-            <div class="modal-body" style="padding: 20px;">
+            <div class="modal-body">
                 <div class="form-group">
                     <label>Current Name:</label>
-                    <p id="currentNameDisplay" style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin: 5px 0 15px 0; color: #333; word-break: break-all;"></p>
+                    <p id="currentNameDisplay"></p>
                 </div>
                 <div class="form-group">
                     <label for="renameInput">New Name:</label>
-                    <input type="text" id="renameInput" placeholder="Enter new name" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
-                    <small id="fileExtensionDisplay" style="color: #666; display: block; margin-top: 5px;"></small>
+                    <input type="text" id="renameInput" placeholder="Enter new name">
+                    <small id="fileExtensionDisplay"></small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1176,6 +1204,7 @@ $folder_tree = buildFolderTree($folders_list);
         </div>
     </div>
 
+    <!-- JavaScript -->
+    <script src="js/main.js?v=<?php echo time(); ?>"></script>
 </body>
-<script src="js/main.js"></script>
 </html>

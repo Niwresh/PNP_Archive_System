@@ -8,14 +8,17 @@
 body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 .dashboard {
     display: flex;
     min-height: 100vh;
+    position: relative;
+    width: 100%;
 }
 
-/* Sidebar Styles */
+/* ===== SIDEBAR STYLES ===== */
 .sidebar {
     width: 280px;
     background: rgba(255, 255, 255, 0.1);
@@ -25,6 +28,8 @@ body {
     position: fixed;
     height: 100vh;
     overflow-y: auto;
+    transition: transform 0.3s ease-in-out;
+    z-index: 1000;
 }
 
 .sidebar-header {
@@ -37,10 +42,12 @@ body {
     color: white;
     font-size: 24px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .sidebar-header i {
-    margin-right: 10px;
     color: #ffd700;
 }
 
@@ -67,6 +74,7 @@ body {
 
 .sidebar-menu li a i {
     width: 20px;
+    font-size: 18px;
 }
 
 .sidebar-menu li a:hover {
@@ -84,6 +92,35 @@ body {
     color: white;
 }
 
+/* ===== MOBILE MENU TOGGLE ===== */
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 1002;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    font-size: 20px;
+    transition: all 0.3s;
+}
+
+.mobile-menu-toggle:hover {
+    transform: scale(1.1);
+}
+
+.mobile-menu-toggle i {
+    pointer-events: none;
+}
+
+/* ===== STORAGE INFO ===== */
 .storage-info {
     padding: 20px;
     border-top: 1px solid rgba(255, 255, 255, 0.2);
@@ -91,32 +128,111 @@ body {
     color: white;
 }
 
-.storage-info i {
-    margin-right: 10px;
+.storage-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.storage-header i {
+    color: #ffd700;
+    font-size: 1.2rem;
+}
+
+.storage-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.storage-used-text {
+    color: rgba(255, 255, 255, 0.9);
+    word-break: break-word;
+}
+
+.storage-percent {
+    font-weight: 600;
     color: #ffd700;
 }
 
+.storage-bar-container {
+    margin: 10px 0 5px;
+}
+
 .storage-bar {
-    height: 4px;
+    height: 8px;
     background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
-    margin-top: 10px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 5px;
 }
 
-.storage-used {
+.storage-used-bar {
     height: 100%;
-    background: #ffd700;
-    border-radius: 2px;
+    border-radius: 4px;
+    transition: width 0.5s ease-in-out;
+    position: relative;
+    overflow: hidden;
 }
 
-/* Main Content */
+.storage-used-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.1) 100%);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.storage-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 5px;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.storage-warning {
+    color: #ff9800;
+    font-size: 11px;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.storage-critical {
+    color: #f44336;
+}
+
+.storage-warning i {
+    font-size: 12px;
+}
+
+/* ===== MAIN CONTENT ===== */
 .main-content {
     flex: 1;
     margin-left: 280px;
     padding: 30px;
+    transition: margin-left 0.3s ease-in-out;
+    min-height: 100vh;
+    width: calc(100% - 280px);
 }
 
-/* Top Bar */
+/* ===== TOP BAR ===== */
 .top-bar {
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
@@ -128,6 +244,8 @@ body {
     color: white;
     margin-bottom: 30px;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    flex-wrap: wrap;
+    gap: 15px;
 }
 
 .breadcrumb {
@@ -135,6 +253,7 @@ body {
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    font-size: 14px;
 }
 
 .breadcrumb a {
@@ -142,6 +261,7 @@ body {
     text-decoration: none;
     opacity: 0.8;
     transition: opacity 0.3s;
+    word-break: break-word;
 }
 
 .breadcrumb a:hover {
@@ -158,10 +278,12 @@ body {
     display: flex;
     align-items: center;
     gap: 15px;
+    flex-wrap: wrap;
 }
 
 .user-info span {
     font-weight: 500;
+    word-break: break-word;
 }
 
 .logout-btn {
@@ -172,6 +294,9 @@ body {
     text-decoration: none;
     transition: all 0.3s;
     border: 1px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .logout-btn:hover {
@@ -179,7 +304,7 @@ body {
     transform: translateY(-2px);
 }
 
-/* Dashboard View */
+/* ===== DASHBOARD VIEW ===== */
 .dashboard-view {
     animation: fadeIn 0.5s ease-out;
 }
@@ -211,6 +336,7 @@ body {
     font-size: 36px;
     font-weight: 700;
     margin-bottom: 10px;
+    word-break: break-word;
 }
 
 .stat-label {
@@ -218,6 +344,7 @@ body {
     opacity: 0.9;
     text-transform: uppercase;
     letter-spacing: 1px;
+    word-break: break-word;
 }
 
 .report-area {
@@ -243,6 +370,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 .report-box h3 i {
@@ -268,6 +396,7 @@ body {
     transition: all 0.3s;
     font-size: 14px;
     text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .quick-action-btn:hover {
@@ -291,6 +420,7 @@ body {
     padding: 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     transition: background 0.3s;
+    flex-wrap: wrap;
 }
 
 .recent-file-item:hover {
@@ -301,26 +431,31 @@ body {
 .recent-file-item i {
     font-size: 20px;
     color: #ffd700;
+    flex-shrink: 0;
 }
 
 .recent-file-info {
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 150px;
 }
 
 .recent-file-name {
     font-weight: 500;
+    word-break: break-word;
 }
 
 .recent-file-location {
     font-size: 12px;
     opacity: 0.7;
+    word-break: break-word;
 }
 
 .recent-file-date {
     font-size: 12px;
     opacity: 0.7;
+    white-space: nowrap;
 }
 
 .no-recent-files {
@@ -330,6 +465,9 @@ body {
 }
 
 .system-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
     border-radius: 15px;
@@ -344,6 +482,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 .info-card h4 i {
@@ -355,6 +494,8 @@ body {
     justify-content: space-between;
     padding: 10px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .info-item:last-child {
@@ -371,7 +512,7 @@ body {
     color: #4caf50;
 }
 
-/* Drive View */
+/* ===== DRIVE VIEW ===== */
 .drive-view {
     animation: fadeIn 0.5s ease-out;
 }
@@ -406,6 +547,7 @@ body {
     color: white;
     margin-right: 10px;
     opacity: 0.7;
+    font-size: 16px;
 }
 
 .search-box input {
@@ -415,13 +557,15 @@ body {
     outline: none;
     color: white;
     font-size: 14px;
+    width: 100%;
+    min-width: 150px;
 }
 
 .search-box input::placeholder {
     color: rgba(255, 255, 255, 0.7);
 }
 
-/* Filter Dropdown Styles */
+/* ===== FILTER DROPDOWN ===== */
 .filter-dropdown {
     flex: 1;
     min-width: 150px;
@@ -437,6 +581,7 @@ body {
     opacity: 0.7;
     z-index: 1;
     pointer-events: none;
+    font-size: 14px;
 }
 
 .filter-dropdown select {
@@ -477,6 +622,7 @@ body {
     color: white;
     opacity: 0.7;
     pointer-events: none;
+    font-size: 12px;
 }
 
 .clear-filter {
@@ -493,12 +639,7 @@ body {
     opacity: 1;
 }
 
-/* Semester Filter Specific */
-.semester-filter i {
-    color: #ffd700;
-}
-
-/* Filter Button */
+/* ===== FILTER BUTTONS ===== */
 .filter-btn {
     padding: 10px 25px;
     background: rgba(255, 255, 255, 0.2);
@@ -511,6 +652,8 @@ body {
     text-decoration: none;
     display: inline-block;
     text-align: center;
+    font-size: 14px;
+    white-space: nowrap;
 }
 
 .filter-btn:hover {
@@ -530,6 +673,7 @@ body {
     opacity: 0.8;
     transition: opacity 0.3s;
     padding: 10px 15px;
+    white-space: nowrap;
 }
 
 .clear-filters:hover {
@@ -537,13 +681,14 @@ body {
     text-decoration: underline;
 }
 
-/* Files Area */
+/* ===== FILES AREA ===== */
 .files-area {
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
     border-radius: 15px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    width: 100%;
 }
 
 .files-header {
@@ -592,6 +737,7 @@ body {
 
 .file-name i {
     font-size: 20px;
+    flex-shrink: 0;
 }
 
 .file-name .folder-icon {
@@ -611,6 +757,7 @@ body {
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    word-break: break-word;
 }
 
 .file-name a:hover {
@@ -618,13 +765,14 @@ body {
     text-decoration: underline;
 }
 
-/* Badges */
+/* ===== BADGES ===== */
 .badge {
     font-size: 11px;
     background: rgba(255, 255, 255, 0.2);
     padding: 2px 8px;
     border-radius: 12px;
     color: #ffd700;
+    white-space: nowrap;
 }
 
 .year-badge {
@@ -634,6 +782,7 @@ body {
     border-radius: 12px;
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.3);
+    white-space: nowrap;
 }
 
 .semester-badge {
@@ -643,17 +792,30 @@ body {
     border-radius: 12px;
     color: #ffd700;
     border: 1px solid rgba(255, 215, 0, 0.3);
+    white-space: nowrap;
+}
+
+.month-badge {
+    font-size: 11px;
+    background: rgba(52, 152, 219, 0.2);
+    padding: 2px 8px;
+    border-radius: 12px;
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.3);
+    white-space: nowrap;
 }
 
 .file-modified,
 .file-size {
     color: rgba(255, 255, 255, 0.8);
     font-size: 14px;
+    word-break: break-word;
 }
 
 .file-actions {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .action-btn {
@@ -669,6 +831,7 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .action-btn:hover {
@@ -680,7 +843,7 @@ body {
     color: #ff4757;
 }
 
-/* Empty State */
+/* ===== EMPTY STATE ===== */
 .empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -696,10 +859,12 @@ body {
 .empty-state h3 {
     font-size: 18px;
     margin-bottom: 10px;
+    word-break: break-word;
 }
 
 .empty-state p {
     opacity: 0.7;
+    word-break: break-word;
 }
 
 .filter-info {
@@ -712,6 +877,7 @@ body {
     justify-content: center;
     gap: 10px;
     flex-wrap: wrap;
+    font-size: 14px;
 }
 
 .filter-tag {
@@ -720,6 +886,7 @@ body {
     border-radius: 20px;
     font-size: 13px;
     color: #ffd700;
+    word-break: break-word;
 }
 
 .clear-filter-link {
@@ -728,18 +895,37 @@ body {
     opacity: 0.8;
     transition: opacity 0.3s;
     margin-left: 10px;
+    white-space: nowrap;
 }
 
 .clear-filter-link:hover {
     opacity: 1;
 }
 
-/* Floating Action Button */
+/* ===== TRASH BADGE ===== */
+.trash-badge {
+    background: #ff4757;
+    color: white;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 8px;
+}
+
+.trash-item {
+    opacity: 0.8;
+}
+
+.trash-item:hover {
+    opacity: 1;
+}
+
+/* ===== FLOATING ACTION BUTTON ===== */
 .fab-container {
     position: fixed;
     bottom: 30px;
     right: 30px;
-    z-index: 1000;
+    z-index: 999;
 }
 
 .fab {
@@ -790,6 +976,7 @@ body {
     transition: background 0.3s;
     color: #333;
     font-size: 14px;
+    text-align: left;
 }
 
 .fab-menu-item:hover {
@@ -799,9 +986,10 @@ body {
 .fab-menu-item i {
     width: 20px;
     color: #667eea;
+    font-size: 16px;
 }
 
-/* Modal Styles */
+/* ===== MODAL STYLES ===== */
 .modal {
     display: none;
     position: fixed;
@@ -813,6 +1001,7 @@ body {
     z-index: 2000;
     align-items: center;
     justify-content: center;
+    padding: 15px;
 }
 
 .modal-content {
@@ -848,6 +1037,7 @@ body {
 .modal-header h3 {
     color: #333;
     font-size: 18px;
+    word-break: break-word;
 }
 
 .close-btn {
@@ -857,6 +1047,11 @@ body {
     cursor: pointer;
     color: #999;
     transition: color 0.3s;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .close-btn:hover {
@@ -864,6 +1059,10 @@ body {
 }
 
 .modal form {
+    padding: 20px;
+}
+
+.modal-body {
     padding: 20px;
 }
 
@@ -877,6 +1076,7 @@ body {
     color: #333;
     font-weight: 500;
     font-size: 14px;
+    word-break: break-word;
 }
 
 .form-group input,
@@ -906,10 +1106,11 @@ body {
     background: #e7f3ff;
     border-left: 4px solid #667eea;
     padding: 15px;
-    margin: 0 20px 20px;
+    margin: 0 0 20px 0;
     border-radius: 8px;
     font-size: 14px;
     color: #333;
+    word-break: break-word;
 }
 
 .info-text i {
@@ -923,6 +1124,7 @@ body {
     gap: 10px;
     padding: 20px;
     border-top: 1px solid #e9ecef;
+    flex-wrap: wrap;
 }
 
 .cancel-btn,
@@ -934,6 +1136,8 @@ body {
     cursor: pointer;
     font-weight: 500;
     transition: all 0.3s;
+    font-size: 14px;
+    min-width: 80px;
 }
 
 .cancel-btn {
@@ -973,6 +1177,7 @@ body {
 .delete-content p {
     color: #666;
     font-size: 16px;
+    word-break: break-word;
 }
 
 .delete-content .warning {
@@ -981,385 +1186,9 @@ body {
     margin-bottom: 10px;
 }
 
-/* Animations */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Responsive Design */
-@media (max-width: 1024px) {
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .report-area {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.3s;
-        z-index: 1001;
-    }
-    
-    .sidebar.active {
-        transform: translateX(0);
-    }
-    
-    .main-content {
-        margin-left: 0;
-        padding: 15px;
-    }
-    
-    .mobile-menu-toggle {
-        display: flex;
-        position: fixed;
-        top: 15px;
-        left: 15px;
-        z-index: 1002;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        width: 45px;
-        height: 45px;
-        border-radius: 50%;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    }
-    
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .files-header {
-        display: none;
-    }
-    
-    .file-item {
-        grid-template-columns: 1fr;
-        gap: 10px;
-        padding: 15px;
-    }
-    
-    .file-modified,
-    .file-size {
-        padding-left: 32px;
-    }
-    
-    .file-actions {
-        padding-left: 32px;
-    }
-    
-    .filters-form {
-        flex-direction: column;
-    }
-    
-    .search-box,
-    .filter-dropdown {
-        width: 100%;
-    }
-    
-    .filter-btn,
-    .clear-filters {
-        width: 100%;
-        text-align: center;
-    }
-    
-    .quick-actions {
-        flex-direction: column;
-    }
-    
-    .quick-action-btn {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .fab-container {
-        bottom: 20px;
-        right: 20px;
-    }
-    
-    .fab {
-        width: 50px;
-        height: 50px;
-        font-size: 20px;
-    }
-}
-
-@media (max-width: 480px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .top-bar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    
-    .user-info {
-        width: 100%;
-        justify-content: space-between;
-    }
-}
-
-/* Mobile Menu Toggle */
-.mobile-menu-toggle {
-    display: none;
-}
-
-/* Trash Badge */
-.trash-badge {
-    background: #ff4757;
-    color: white;
-    font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 10px;
-    margin-left: 8px;
-}
-
-/* Trash Items */
-.trash-item {
-    opacity: 0.8;
-}
-
-.trash-item:hover {
-    opacity: 1;
-}
-
-/* Filter Buttons Active State */
-.filter-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-color: transparent;
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.4);
-}
-
-/* Month and Year Field Styles */
-#monthField, #yearField {
-    transition: all 0.3s ease;
-}
-
-#monthField select, #yearField input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.3s;
-}
-
-#monthField select:focus, #yearField input:focus {
-    border-color: #667eea;
-}
-
-#monthField select {
-    background-color: white;
-    cursor: pointer;
-}
-
-#monthField select option {
-    padding: 10px;
-}
-
-/* Small helper text */
-.form-group small {
-    color: #666;
-    font-size: 12px;
-    margin-top: 5px;
-    display: block;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    #monthField select, #yearField input {
-        padding: 10px;
-        font-size: 13px;
-    }
-}
-
-/* Month Badge */
-.month-badge {
-    font-size: 11px;
-    background: rgba(52, 152, 219, 0.2);
-    padding: 2px 8px;
-    border-radius: 12px;
-    color: #3498db;
-    border: 1px solid rgba(52, 152, 219, 0.3);
-    margin-left: 5px;
-}
-
-/* Update semester badge to work alongside month badge */
-.semester-badge {
-    margin-left: 5px;
-}
-
-/* Info text variations */
-.info-text i.fa-calendar-alt {
-    color: #ffd700;
-}
-
-/* Folder item hover effect */
-.folder-item:hover .month-badge {
-    background: rgba(52, 152, 219, 0.3);
-}
-
-/* Enhanced storage bar styles */
-        .storage-info {
-            padding: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-            margin-top: 20px;
-            color: white;
-        }
-        
-        .storage-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .storage-header i {
-            color: #ffd700;
-            font-size: 1.2rem;
-        }
-        
-        .storage-stats {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            font-size: 13px;
-        }
-        
-        .storage-used-text {
-            color: rgba(255, 255, 255, 0.9);
-        }
-        
-        .storage-percent {
-            font-weight: 600;
-            color: #ffd700;
-        }
-        
-        .storage-bar-container {
-            position: relative;
-            margin: 10px 0 5px;
-        }
-        
-        .storage-bar {
-            height: 8px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 5px;
-        }
-        
-        .storage-used-bar {
-            height: 100%;
-            width: 0%;
-            border-radius: 4px;
-            transition: width 0.5s ease-in-out;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .storage-used-bar::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(
-                90deg,
-                rgba(255, 255, 255, 0.1) 0%,
-                rgba(255, 255, 255, 0.3) 50%,
-                rgba(255, 255, 255, 0.1) 100%
-            );
-            animation: shimmer 2s infinite;
-        }
-        
-        @keyframes shimmer {
-            0% {
-                transform: translateX(-100%);
-            }
-            100% {
-                transform: translateX(100%);
-            }
-        }
-        
-        .storage-details {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-top: 5px;
-        }
-        
-        .storage-warning {
-            color: #ff9800;
-            font-size: 11px;
-            margin-top: 5px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .storage-critical {
-            color: #f44336;
-        }
-        
-        .storage-warning i {
-            font-size: 12px;
-        }
-
-        /* ===== RENAME MODAL SPECIFIC STYLES ===== */
+/* ===== RENAME MODAL SPECIFIC STYLES ===== */
 #renameModal .modal-content {
     max-width: 450px;
-}
-
-#renameModal .modal-body {
-    padding: 20px;
 }
 
 #currentNameDisplay {
@@ -1393,13 +1222,457 @@ body {
     font-size: 12px;
     margin-top: 8px;
     padding-left: 5px;
+    word-break: break-word;
 }
 
-/* Mobile responsive for rename modal */
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== RESPONSIVE DESIGN - LAPTOPS ===== */
+@media (max-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+    
+    .main-content {
+        padding: 25px;
+    }
+}
+
+/* ===== RESPONSIVE DESIGN - TABLETS ===== */
+@media (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .report-area {
+        grid-template-columns: 1fr;
+    }
+    
+    .system-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .filters-form {
+        gap: 12px;
+    }
+    
+    .search-box {
+        min-width: 200px;
+    }
+    
+    .filter-dropdown {
+        min-width: 130px;
+    }
+}
+
+/* ===== RESPONSIVE DESIGN - MOBILE LANDSCAPE ===== */
+@media (max-width: 900px) {
+    .files-header {
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        font-size: 13px;
+    }
+    
+    .file-item {
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        font-size: 13px;
+    }
+}
+
+/* ===== RESPONSIVE DESIGN - MOBILE ===== */
+@media (max-width: 768px) {
+    .mobile-menu-toggle {
+        display: flex;
+    }
+    
+    .sidebar {
+        transform: translateX(-100%);
+        width: 260px;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+        padding: 15px;
+        width: 100%;
+    }
+    
+    .top-bar {
+        margin-top: 50px;
+        padding: 12px 15px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .breadcrumb {
+        width: 100%;
+        font-size: 13px;
+    }
+    
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .stat-card {
+        padding: 20px;
+    }
+    
+    .stat-number {
+        font-size: 28px;
+    }
+    
+    .stat-label {
+        font-size: 12px;
+    }
+    
+    .report-box {
+        padding: 20px;
+    }
+    
+    .quick-actions {
+        flex-direction: column;
+    }
+    
+    .quick-action-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .filters-section {
+        padding: 12px 15px;
+    }
+    
+    .filters-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-box {
+        width: 100%;
+        min-width: 100%;
+    }
+    
+    .filter-dropdown {
+        width: 100%;
+        min-width: 100%;
+    }
+    
+    .filter-btn {
+        width: 100%;
+    }
+    
+    .clear-filters {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .files-header {
+        display: none;
+    }
+    
+    .file-item {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .file-name {
+        margin-bottom: 5px;
+    }
+    
+    .file-name a {
+        flex-wrap: wrap;
+    }
+    
+    .file-modified,
+    .file-size {
+        padding-left: 32px;
+        font-size: 13px;
+    }
+    
+    .file-actions {
+        padding-left: 32px;
+        margin-top: 5px;
+    }
+    
+    .file-modified::before {
+        content: 'Modified: ';
+        opacity: 0.7;
+        margin-right: 5px;
+    }
+    
+    .file-size::before {
+        content: 'Size: ';
+        opacity: 0.7;
+        margin-right: 5px;
+    }
+    
+    .folder-item .file-modified::before {
+        content: 'Created: ';
+    }
+    
+    .system-info {
+        grid-template-columns: 1fr;
+        padding: 20px;
+    }
+    
+    .info-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .info-item span:first-child {
+        font-weight: 500;
+    }
+    
+    .fab-container {
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .fab {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+    
+    .fab-menu {
+        min-width: 180px;
+        right: 0;
+    }
+    
+    .modal-content {
+        width: 95%;
+        max-height: 85vh;
+    }
+    
+    .modal-header {
+        padding: 15px;
+    }
+    
+    .modal-header h3 {
+        font-size: 16px;
+    }
+    
+    .modal form {
+        padding: 15px;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        padding: 10px;
+        font-size: 13px;
+    }
+    
+    .modal-footer {
+        padding: 15px;
+    }
+    
+    .cancel-btn,
+    .submit-btn,
+    .delete-btn {
+        padding: 8px 20px;
+        font-size: 13px;
+        flex: 1;
+    }
+    
+    .filter-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .filter-tag {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .clear-filter-link {
+        margin-left: 0;
+        width: 100%;
+        text-align: center;
+    }
+    
+    .recent-file-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .recent-file-info {
+        width: 100%;
+    }
+    
+    .recent-file-date {
+        align-self: flex-end;
+    }
+    
+    .badge,
+    .year-badge,
+    .semester-badge,
+    .month-badge {
+        margin: 2px 0;
+    }
+}
+
+/* ===== RESPONSIVE DESIGN - SMALL MOBILE ===== */
 @media (max-width: 480px) {
+    .main-content {
+        padding: 10px;
+    }
+    
+    .top-bar {
+        padding: 10px 12px;
+        margin-top: 45px;
+    }
+    
+    .breadcrumb {
+        font-size: 12px;
+    }
+    
+    .user-info span {
+        font-size: 13px;
+    }
+    
+    .logout-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+    
+    .stat-number {
+        font-size: 24px;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+    }
+    
+    .file-name {
+        gap: 8px;
+    }
+    
+    .file-name i {
+        font-size: 18px;
+    }
+    
+    .file-name a {
+        font-size: 14px;
+    }
+    
+    .file-modified,
+    .file-size {
+        font-size: 12px;
+        padding-left: 26px;
+    }
+    
+    .file-actions {
+        padding-left: 26px;
+        gap: 5px;
+    }
+    
+    .action-btn {
+        padding: 5px 8px;
+        font-size: 12px;
+    }
+    
+    .fab-container {
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .fab {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+    
+    .fab-menu {
+        min-width: 160px;
+        bottom: 70px;
+    }
+    
+    .fab-menu-item {
+        padding: 10px 15px;
+        font-size: 13px;
+    }
+    
+    .empty-state i {
+        font-size: 40px;
+    }
+    
+    .empty-state h3 {
+        font-size: 16px;
+    }
+    
+    .empty-state p {
+        font-size: 13px;
+    }
+    
+    .filter-info {
+        padding: 10px;
+        font-size: 12px;
+    }
+    
+    .filter-tag {
+        font-size: 12px;
+        padding: 4px 10px;
+    }
+    
     #renameModal .modal-content {
         width: 95%;
-        margin: 10px;
     }
     
     #currentNameDisplay {
@@ -1411,87 +1684,71 @@ body {
         padding: 10px 12px;
         font-size: 13px;
     }
+    
+    #fileExtensionDisplay {
+        font-size: 11px;
+    }
+    
+    .delete-content {
+        padding: 20px;
+    }
+    
+    .delete-content p {
+        font-size: 14px;
+    }
+    
+    .info-text {
+        padding: 12px;
+        font-size: 13px;
+    }
+    
+    .info-text i {
+        font-size: 14px;
+    }
+    
+    .storage-info {
+        padding: 15px;
+    }
+    
+    .storage-stats {
+        font-size: 12px;
+    }
+    
+    .storage-details {
+        font-size: 10px;
+    }
+    
+    .storage-warning {
+        font-size: 10px;
+    }
 }
 
-/* Additional styles for semester badges */
-        .semester-badge {
-            background: #ffd700;
-            color: #000;
-            padding: 2px 6px;
-            border-radius: 12px;
-            font-size: 10px;
-            margin-left: 5px;
-            font-weight: bold;
-        }
-        
-        .filter-info {
-            margin-top: 15px;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
-            font-size: 13px;
-        }
-        
-        .filter-tag {
-            background: #3498db;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 15px;
-            margin: 0 3px;
-            display: inline-block;
-        }
-        
-        /* Rename Modal Styles */
-        #renameModal .modal-body {
-            padding: 20px;
-        }
-        
-        #currentNameDisplay {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 5px 0 20px 0;
-            color: #333;
-            word-break: break-all;
-            border: 1px solid #e9ecef;
-            font-size: 14px;
-        }
-        
-        #renameInput {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-        
-        #renameInput:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        #fileExtensionDisplay {
-            color: #666;
-            font-size: 12px;
-            margin-top: 8px;
-            padding-left: 5px;
-        }
-        
-        @media (max-width: 480px) {
-            #renameModal .modal-content {
-                width: 95%;
-                margin: 10px;
-            }
-            
-            #currentNameDisplay {
-                font-size: 13px;
-                padding: 10px;
-            }
-            
-            #renameInput {
-                padding: 10px 12px;
-                font-size: 13px;
-            }
-        }
+/* ===== TOUCH DEVICE OPTIMIZATIONS ===== */
+@media (hover: none) and (pointer: coarse) {
+    .action-btn,
+    .filter-btn,
+    .quick-action-btn,
+    .fab,
+    .fab-menu-item {
+        cursor: default;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .action-btn:active,
+    .filter-btn:active,
+    .quick-action-btn:active,
+    .fab:active,
+    .fab-menu-item:active {
+        transform: scale(0.95);
+    }
+    
+    select,
+    input,
+    button {
+        font-size: 16px !important;
+    }
+    
+    .file-name a {
+        padding: 8px 0;
+    }
+}
