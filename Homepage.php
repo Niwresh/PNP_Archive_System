@@ -1,4 +1,9 @@
 <?php
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
 session_start();
 require_once "PNP_Archive.php";
 
@@ -16,27 +21,22 @@ if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time'] > 1800))
 }
 $_SESSION['login_time'] = time();
 
-// Get current folder ID from URL
-$current_folder_id = isset($_GET['folder_id']) ? intval($_GET['folder_id']) : null;
-
-// Get search parameter
-$search = isset($_GET['search']) ? $_GET['search'] : '';
-
-// Get year filter parameter
-$year_filter = isset($_GET['year']) ? $_GET['year'] : '';
-
-// Get semester filter parameter
+// Get parameters safely
+$current_folder_id = isset($_GET['folder_id']) && is_numeric($_GET['folder_id']) ? intval($_GET['folder_id']) : null;
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$year_filter = isset($_GET['year']) && is_numeric($_GET['year']) ? intval($_GET['year']) : '';
 $semester_filter = isset($_GET['semester']) ? $_GET['semester'] : '';
+$view = isset($_GET['view']) && in_array($_GET['view'], ['dashboard', 'drive', 'trash']) ? $_GET['view'] : 'drive';
+$trash_filter = isset($_GET['trash_filter']) && in_array($_GET['trash_filter'], ['all', 'folders', 'files']) ? $_GET['trash_filter'] : 'all';
 
-// Get view mode (dashboard, drive, or trash)
-$view = isset($_GET['view']) ? $_GET['view'] : 'drive';
-
-// Get trash view filter
-$trash_filter = isset($_GET['trash_filter']) ? $_GET['trash_filter'] : 'all';
-
-// Get current folder info
+// Initialize variables
 $current_folder = null;
 $folder_path = [];
+$folders = null;
+$files = null;
+$folders_list = [];
+
+// Get current folder info
 if ($current_folder_id && $view != 'trash') {
     $folder_query = $conn->query("SELECT * FROM folders WHERE id = $current_folder_id AND deleted_at IS NULL");
     if ($folder_query && $folder_query->num_rows > 0) {
@@ -58,27 +58,27 @@ if ($current_folder_id && $view != 'trash') {
 
 // Get statistics for dashboard
 $total_files_query = $conn->query("SELECT COUNT(*) as count FROM files WHERE deleted_at IS NULL");
-$total_files = $total_files_query->fetch_assoc()['count'];
+$total_files = $total_files_query ? $total_files_query->fetch_assoc()['count'] : 0;
 
 $total_folders_query = $conn->query("SELECT COUNT(*) as count FROM folders WHERE deleted_at IS NULL");
-$total_folders = $total_folders_query->fetch_assoc()['count'];
+$total_folders = $total_folders_query ? $total_folders_query->fetch_assoc()['count'] : 0;
 
-// Calculate total subfolders (folders that have a parent)
+// Calculate total subfolders
 $subfolders_query = $conn->query("SELECT COUNT(*) as count FROM folders WHERE parent_id IS NOT NULL AND deleted_at IS NULL");
-$total_subfolders = $subfolders_query->fetch_assoc()['count'];
+$total_subfolders = $subfolders_query ? $subfolders_query->fetch_assoc()['count'] : 0;
 
-// Calculate root folders (folders with no parent)
+// Calculate root folders
 $root_folders_query = $conn->query("SELECT COUNT(*) as count FROM folders WHERE parent_id IS NULL AND deleted_at IS NULL");
-$total_root_folders = $root_folders_query->fetch_assoc()['count'];
+$total_root_folders = $root_folders_query ? $root_folders_query->fetch_assoc()['count'] : 0;
 
 // Get trash statistics
 $trash_files_query = $conn->query("SELECT COUNT(*) as count FROM files WHERE deleted_at IS NOT NULL");
-$trash_files = $trash_files_query->fetch_assoc()['count'];
+$trash_files = $trash_files_query ? $trash_files_query->fetch_assoc()['count'] : 0;
 
 $trash_folders_query = $conn->query("SELECT COUNT(*) as count FROM folders WHERE deleted_at IS NOT NULL");
-$trash_folders = $trash_folders_query->fetch_assoc()['count'];
+$trash_folders = $trash_folders_query ? $trash_folders_query->fetch_assoc()['count'] : 0;
 
-// Calculate total storage used using the function from PNP_Archive.php
+// Calculate total storage used
 $storage_used = calculateTotalStorage($conn);
 
 // Define total storage limit (5GB)
@@ -94,42 +94,21 @@ if ($storage_percent > 0 && $storage_percent < 1) {
 
 $storage_percent = min(100, round($storage_percent, 2));
 
-// Determine storage bar color based on usage
-$storage_bar_color = '#4caf50'; // Green for normal usage
+// Determine storage bar color
+$storage_bar_color = '#4caf50';
 if ($storage_percent > 80) {
-    $storage_bar_color = '#ff9800'; // Orange for warning
+    $storage_bar_color = '#ff9800';
 }
 if ($storage_percent > 95) {
-    $storage_bar_color = '#f44336'; // Red for critical
+    $storage_bar_color = '#f44336';
 }
 
-// Format storage used for display
-if ($storage_used >= 1073741824) {
-    $storage_display = number_format($storage_used / 1073741824, 2) . ' GB';
-} elseif ($storage_used >= 1048576) {
-    $storage_display = number_format($storage_used / 1048576, 2) . ' MB';
-} elseif ($storage_used >= 1024) {
-    $storage_display = number_format($storage_used / 1024, 2) . ' KB';
-} else {
-    $storage_display = $storage_used . ' bytes';
-}
-
-// Format total storage
+// Format storage used
+$storage_display = formatFileSize($storage_used);
 $total_storage_display = '5 GB';
+$remaining_display = formatFileSize($total_storage_limit - $storage_used);
 
-// Calculate remaining storage
-$remaining_storage = $total_storage_limit - $storage_used;
-if ($remaining_storage >= 1073741824) {
-    $remaining_display = number_format($remaining_storage / 1073741824, 2) . ' GB';
-} elseif ($remaining_storage >= 1048576) {
-    $remaining_display = number_format($remaining_storage / 1048576, 2) . ' MB';
-} elseif ($remaining_storage >= 1024) {
-    $remaining_display = number_format($remaining_storage / 1024, 2) . ' KB';
-} else {
-    $remaining_display = $remaining_storage . ' bytes';
-}
-
-// Get folder hierarchy statistics for dashboard
+// Get folder hierarchy statistics
 $folder_hierarchy_query = $conn->query("
     SELECT 
         f1.id as folder_id,
@@ -158,39 +137,19 @@ if ($years_query && $years_query->num_rows > 0) {
     }
 }
 
-// Function to determine semester from month
-function getSemesterFromMonth($month) {
-    if ($month >= 1 && $month <= 6) {
-        return 'first';
-    } elseif ($month >= 7 && $month <= 12) {
-        return 'second';
-    }
-    return '';
-}
-
-// Function to get month range for semester
-function getSemesterMonths($semester) {
-    if ($semester == 'first') {
-        return [1, 6]; // January to June
-    } elseif ($semester == 'second') {
-        return [7, 12]; // July to December
-    }
-    return [1, 12]; // All months if no semester selected
-}
-
 // Build folder query for drive view
 if ($view == 'drive') {
 
-    // GLOBAL SEARCH (search entire system)
+    // GLOBAL SEARCH
     if (!empty($search)) {
-
+        $search_escaped = $conn->real_escape_string($search);
+        
         $folder_query = "
             SELECT * FROM folders
             WHERE deleted_at IS NULL
-            AND folder_name LIKE '%" . $conn->real_escape_string($search) . "%'
+            AND folder_name LIKE '%$search_escaped%'
             ORDER BY folder_name ASC
         ";
-
         $folders = $conn->query($folder_query);
 
         $file_query = "
@@ -198,30 +157,24 @@ if ($view == 'drive') {
             FROM files
             LEFT JOIN folders ON files.folder_id = folders.id
             WHERE files.deleted_at IS NULL
-            AND files.file_name LIKE '%" . $conn->real_escape_string($search) . "%'
+            AND files.file_name LIKE '%$search_escaped%'
             ORDER BY files.uploaded_at DESC
         ";
-
         $files = $conn->query($file_query);
     }
-
     // NORMAL DRIVE VIEW
     else {
-
         $folder_query = "SELECT * FROM folders WHERE deleted_at IS NULL";
 
-        // Show folders in current location
         if ($current_folder_id) {
             $folder_query .= " AND parent_id = $current_folder_id";
         } else {
             $folder_query .= " AND parent_id IS NULL";
         }
 
-        // Year filter for folders
         if (!empty($year_filter)) {
             $folder_query .= " AND year = " . intval($year_filter);
             
-            // Add semester filter for folders if selected
             if (!empty($semester_filter)) {
                 $months = getSemesterMonths($semester_filter);
                 $folder_query .= " AND month BETWEEN " . $months[0] . " AND " . $months[1];
@@ -231,7 +184,6 @@ if ($view == 'drive') {
         $folder_query .= " ORDER BY folder_name ASC";
         $folders = $conn->query($folder_query);
 
-
         $file_query = "
             SELECT files.*, folders.folder_name
             FROM files
@@ -239,18 +191,15 @@ if ($view == 'drive') {
             WHERE files.deleted_at IS NULL
         ";
 
-        // Show files in current folder
         if ($current_folder_id) {
             $file_query .= " AND files.folder_id = $current_folder_id";
         } else {
             $file_query .= " AND files.folder_id IS NULL";
         }
 
-        // Year filter for files
         if (!empty($year_filter)) {
             $file_query .= " AND files.year = " . intval($year_filter);
             
-            // Semester filter for files
             if (!empty($semester_filter)) {
                 $months = getSemesterMonths($semester_filter);
                 $file_query .= " AND files.month BETWEEN " . $months[0] . " AND " . $months[1];
@@ -283,7 +232,7 @@ if (isset($files) && !$files) {
     die("Error in files query: " . $conn->error);
 }
 
-// Get all folders for dropdown (for moving files)
+// Get all folders for dropdown
 $folders_list_query = $conn->query("SELECT * FROM folders WHERE deleted_at IS NULL ORDER BY folder_name ASC");
 $folders_list = [];
 if ($folders_list_query) {
@@ -304,6 +253,15 @@ function buildFolderTree($folders, $parent_id = null, $level = 0) {
 }
 
 $folder_tree = buildFolderTree($folders_list);
+
+// Get parent folder year if we're in a subfolder
+$parent_year = null;
+if ($current_folder_id) {
+    $parent_year_query = $conn->query("SELECT year FROM folders WHERE id = $current_folder_id");
+    if ($parent_year_query && $parent_year_query->num_rows > 0) {
+        $parent_year = $parent_year_query->fetch_assoc()['year'];
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -340,12 +298,44 @@ $folder_tree = buildFolderTree($folders_list);
                 max-width: calc(100% - 30px);
             }
         }
+        
+        /* Inheritance info styles */
+        .inheritance-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #0d47a1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .inheritance-info i {
+            font-size: 18px;
+            color: #2196f3;
+        }
+        
+        .inheritance-info strong {
+            color: #0d47a1;
+        }
+        
+        .year-badge {
+            background: #4caf50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 5px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
     <div class="dashboard">
-
-        <!-- Sidebar (Mobile toggle will be added by JS) -->
+        <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <h2><i class="fas fa-archive"></i> PNP Archive</h2>
@@ -373,7 +363,7 @@ $folder_tree = buildFolderTree($folders_list);
                 <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
             </ul>
 
-            <!-- Enhanced Storage Info -->
+            <!-- Storage Info -->
             <div class="storage-info">
                 <div class="storage-header">
                     <i class="fas fa-database"></i>
@@ -428,6 +418,9 @@ $folder_tree = buildFolderTree($folders_list);
                             <i class="fas fa-chevron-right"></i>
                             <a href="homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?>">
                                 <?php echo htmlspecialchars($folder['folder_name']); ?>
+                                <?php if (!empty($folder['year'])): ?>
+                                    <span class="year-badge"><?php echo $folder['year']; ?></span>
+                                <?php endif; ?>
                             </a>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -448,24 +441,21 @@ $folder_tree = buildFolderTree($folders_list);
                             <div class="stat-number"><?php echo $total_files; ?></div>
                             <div class="stat-label">Total Files</div>
                         </div>
-
                         <div class="stat-card">
                             <div class="stat-number"><?php echo $total_folders; ?></div>
                             <div class="stat-label">Total Folders</div>
                         </div>
-
                         <div class="stat-card">
                             <div class="stat-number"><?php echo $total_root_folders; ?></div>
                             <div class="stat-label">Root Folders</div>
                         </div>
-
                         <div class="stat-card">
                             <div class="stat-number"><?php echo $total_subfolders; ?></div>
                             <div class="stat-label">Sub Folders</div>
                         </div>
                     </div>
 
-                    <!-- QUICK ACTIONS AND FOLDER HIERARCHY -->
+                    <!-- QUICK ACTIONS -->
                     <div class="report-area">
                         <div class="report-box">
                             <h3><i class="fas fa-chart-line"></i> Quick Actions</h3>
@@ -498,9 +488,6 @@ $folder_tree = buildFolderTree($folders_list);
                                                     Subfolders: <?php echo $folder_stat['subfolder_count']; ?>
                                                 </span>
                                             </div>
-                                            <span class="recent-file-date">
-                                                <i class="fas fa-sitemap"></i> Level
-                                            </span>
                                         </div>
                                     <?php endwhile; ?>
                                 <?php else: ?>
@@ -512,7 +499,7 @@ $folder_tree = buildFolderTree($folders_list);
                         </div>
                     </div>
 
-                    <!-- SYSTEM INFO AND TRASH SUMMARY -->
+                    <!-- SYSTEM INFO -->
                     <div class="system-info">
                         <div class="info-card">
                             <h4><i class="fas fa-info-circle"></i> System Status</h4>
@@ -523,14 +510,6 @@ $folder_tree = buildFolderTree($folders_list);
                             <div class="info-item">
                                 <span>Last Login:</span>
                                 <span><?php echo date('M d, Y H:i', $_SESSION['login_time']); ?></span>
-                            </div>
-                            <div class="info-item">
-                                <span>PHP Version:</span>
-                                <span><?php echo phpversion(); ?></span>
-                            </div>
-                            <div class="info-item">
-                                <span>Database:</span>
-                                <span>MySQL</span>
                             </div>
                         </div>
 
@@ -543,10 +522,6 @@ $folder_tree = buildFolderTree($folders_list);
                             <div class="info-item">
                                 <span>Folders in Trash:</span>
                                 <span><?php echo $trash_folders; ?></span>
-                            </div>
-                            <div class="info-item">
-                                <span>Total Items:</span>
-                                <span><?php echo $trash_files + $trash_folders; ?></span>
                             </div>
                             <div class="info-item">
                                 <a href="homepage.php?view=trash" class="quick-action-btn" style="width: 100%; justify-content: center; margin-top: 10px;">
@@ -565,7 +540,7 @@ $folder_tree = buildFolderTree($folders_list);
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                             <h3 style="color: white; margin: 0;">
                                 <i class="fas fa-trash"></i> Trash Bin
-                                <small style="font-size: 14px; opacity: 0.7; margin-left: 10px; display: inline-block;">Items are automatically deleted after 30 days</small>
+                                <small style="font-size: 14px; opacity: 0.7; margin-left: 10px;">Items are automatically deleted after 30 days</small>
                             </h3>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <a href="homepage.php?view=trash&trash_filter=all" class="filter-btn <?php echo $trash_filter == 'all' ? 'active' : ''; ?>">All</a>
@@ -589,58 +564,60 @@ $folder_tree = buildFolderTree($folders_list);
 
                         <div class="files-list">
                             <!-- Display Folders in Trash -->
-                            <?php 
-                            if (isset($folders) && $folders && $folders->num_rows > 0): 
-                                while ($folder = $folders->fetch_assoc()): 
-                                    $days_until_deletion = 30 - floor((time() - strtotime($folder['deleted_at'])) / (60 * 60 * 24));
-                            ?>
-                                <div class="file-item folder-item trash-item" data-id="<?php echo $folder['id']; ?>">
-                                    <div class="file-name">
-                                        <i class="fas fa-folder folder-icon"></i>
-                                        <span>
-                                            <?php echo htmlspecialchars($folder['folder_name']); ?>
-                                            <?php if ($days_until_deletion > 0): ?>
-                                                <span class="badge" style="margin-left: 5px;">Deletes in <?php echo $days_until_deletion; ?> days</span>
-                                            <?php else: ?>
-                                                <span class="badge" style="background: #ff4757; color: white; margin-left: 5px;">Will be deleted soon</span>
-                                            <?php endif; ?>
-                                        </span>
+                            <?php if (isset($folders) && $folders && $folders->num_rows > 0): ?>
+                                <?php while ($folder = $folders->fetch_assoc()): ?>
+                                    <?php $days_until_deletion = 30 - floor((time() - strtotime($folder['deleted_at'])) / (60 * 60 * 24)); ?>
+                                    <div class="file-item folder-item trash-item" data-id="<?php echo $folder['id']; ?>">
+                                        <div class="file-name">
+                                            <i class="fas fa-folder folder-icon"></i>
+                                            <span>
+                                                <?php echo htmlspecialchars($folder['folder_name']); ?>
+                                                <?php if (!empty($folder['year'])): ?>
+                                                    <span class="year-badge"><?php echo $folder['year']; ?></span>
+                                                <?php endif; ?>
+                                                <?php if ($days_until_deletion > 0): ?>
+                                                    <span class="badge">Deletes in <?php echo $days_until_deletion; ?> days</span>
+                                                <?php else: ?>
+                                                    <span class="badge" style="background: #ff4757;">Will be deleted soon</span>
+                                                <?php endif; ?>
+                                            </span>
+                                        </div>
+                                        <div class="file-modified" data-label="Deleted on">
+                                            <?php echo date('M d, Y', strtotime($folder['deleted_at'])); ?>
+                                        </div>
+                                        <div class="file-size" data-label="Type">Folder</div>
+                                        <div class="file-actions">
+                                            <button class="action-btn" onclick="restoreFolder(<?php echo $folder['id']; ?>)" title="Restore">
+                                                <i class="fas fa-undo-alt"></i>
+                                            </button>
+                                            <button class="action-btn" onclick="permanentlyDeleteFolder(<?php echo $folder['id']; ?>)" title="Delete Permanently">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="file-modified" data-label="Deleted on">
-                                        <?php echo date('M d, Y', strtotime($folder['deleted_at'])); ?>
-                                    </div>
-                                    <div class="file-size" data-label="Type">Folder</div>
-                                    <div class="file-actions">
-                                        <button class="action-btn" onclick="restoreFolder(<?php echo $folder['id']; ?>)" title="Restore">
-                                            <i class="fas fa-undo-alt"></i>
-                                        </button>
-                                        <button class="action-btn" onclick="permanentlyDeleteFolder(<?php echo $folder['id']; ?>)" title="Delete Permanently">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            <?php 
-                                endwhile; 
-                            endif; 
-                            ?>
+                                <?php endwhile; ?>
+                            <?php endif; ?>
 
                             <!-- Display Files in Trash -->
-                            <?php 
-                            if (isset($files) && $files && $files->num_rows > 0): 
-                                while ($file = $files->fetch_assoc()): 
+                            <?php if (isset($files) && $files && $files->num_rows > 0): ?>
+                                <?php while ($file = $files->fetch_assoc()): ?>
+                                    <?php 
                                     $file_path = $file['file_path'];
                                     $file_size = file_exists($file_path) ? filesize($file_path) : 0;
                                     $days_until_deletion = 30 - floor((time() - strtotime($file['deleted_at'])) / (60 * 60 * 24));
-                            ?>
+                                    ?>
                                     <div class="file-item trash-item" data-id="<?php echo $file['id']; ?>">
                                         <div class="file-name">
                                             <i class="fas <?php echo getFileIcon($file['file_name']); ?> file-icon"></i>
                                             <span>
                                                 <?php echo htmlspecialchars($file['file_name']); ?>
+                                                <?php if (!empty($file['year'])): ?>
+                                                    <span class="year-badge"><?php echo $file['year']; ?></span>
+                                                <?php endif; ?>
                                                 <?php if ($days_until_deletion > 0): ?>
-                                                    <span class="badge" style="margin-left: 5px;">Deletes in <?php echo $days_until_deletion; ?> days</span>
+                                                    <span class="badge">Deletes in <?php echo $days_until_deletion; ?> days</span>
                                                 <?php else: ?>
-                                                    <span class="badge" style="background: #ff4757; color: white; margin-left: 5px;">Will be deleted soon</span>
+                                                    <span class="badge" style="background: #ff4757;">Will be deleted soon</span>
                                                 <?php endif; ?>
                                             </span>
                                         </div>
@@ -657,10 +634,8 @@ $folder_tree = buildFolderTree($folders_list);
                                             </button>
                                         </div>
                                     </div>
-                            <?php 
-                                endwhile; 
-                            endif; 
-                            ?>
+                                <?php endwhile; ?>
+                            <?php endif; ?>
 
                             <!-- Empty State -->
                             <?php if ((!isset($folders) || $folders->num_rows == 0) && (!isset($files) || $files->num_rows == 0)): ?>
@@ -691,7 +666,7 @@ $folder_tree = buildFolderTree($folders_list);
                                        value="<?php echo htmlspecialchars($search); ?>">
                             </div>
                             
-                            <!-- Year Filter Dropdown -->
+                            <!-- Year Filter -->
                             <div class="filter-dropdown year-filter">
                                 <i class="fas fa-calendar-alt"></i>
                                 <select name="year" onchange="this.form.submit()">
@@ -702,16 +677,9 @@ $folder_tree = buildFolderTree($folders_list);
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                
-                                <?php if (!empty($year_filter)): ?>
-                                    <a href="homepage.php?view=drive<?php echo $current_folder_id ? '&folder_id='.$current_folder_id : ''; ?><?php echo $search ? '&search='.urlencode($search) : ''; ?><?php echo $semester_filter ? '&semester='.$semester_filter : ''; ?>" 
-                                       class="clear-filter" title="Clear year filter">
-                                        <i class="fas fa-times-circle"></i>
-                                    </a>
-                                <?php endif; ?>
                             </div>
                             
-                            <!-- Semester Filter Dropdown -->
+                            <!-- Semester Filter -->
                             <div class="filter-dropdown semester-filter">
                                 <i class="fas fa-layer-group"></i>
                                 <select name="semester" onchange="this.form.submit()" <?php echo empty($year_filter) ? 'disabled' : ''; ?>>
@@ -719,13 +687,6 @@ $folder_tree = buildFolderTree($folders_list);
                                     <option value="first" <?php echo $semester_filter == 'first' ? 'selected' : ''; ?>>First Semester (Jan - Jun)</option>
                                     <option value="second" <?php echo $semester_filter == 'second' ? 'selected' : ''; ?>>Second Semester (Jul - Dec)</option>
                                 </select>
-                                
-                                <?php if (!empty($semester_filter)): ?>
-                                    <a href="homepage.php?view=drive<?php echo $current_folder_id ? '&folder_id='.$current_folder_id : ''; ?><?php echo $search ? '&search='.urlencode($search) : ''; ?><?php echo $year_filter ? '&year='.$year_filter : ''; ?>" 
-                                       class="clear-filter" title="Clear semester filter">
-                                        <i class="fas fa-times-circle"></i>
-                                    </a>
-                                <?php endif; ?>
                             </div>
                             
                             <button type="submit" class="filter-btn">Search</button>
@@ -733,19 +694,6 @@ $folder_tree = buildFolderTree($folders_list);
                                 <a href="homepage.php?view=drive" class="clear-filters">Clear All</a>
                             <?php endif; ?>
                         </form>
-                        
-                        <!-- Active Filters Display -->
-                        <?php if (!empty($year_filter) || !empty($semester_filter)): ?>
-                            <div class="filter-info">
-                                <i class="fas fa-filter"></i> Active Filters: 
-                                <?php if (!empty($year_filter)): ?>
-                                    <span class="filter-tag">Year: <?php echo $year_filter; ?></span>
-                                <?php endif; ?>
-                                <?php if (!empty($semester_filter)): ?>
-                                    <span class="filter-tag">Semester: <?php echo $semester_filter == 'first' ? 'First Semester (Jan-Jun)' : 'Second Semester (Jul-Dec)'; ?></span>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
                     </div>
 
                     <!-- Files Area -->
@@ -764,11 +712,8 @@ $folder_tree = buildFolderTree($folders_list);
                             if (isset($folders) && $folders && $folders->num_rows > 0): 
                                 $has_folders = true;
                                 while ($folder = $folders->fetch_assoc()): 
-                                    // Count subfolders for each folder
                                     $subfolder_count_query = $conn->query("SELECT COUNT(*) as count FROM folders WHERE parent_id = " . $folder['id'] . " AND deleted_at IS NULL");
-                                    $subfolder_count = $subfolder_count_query->fetch_assoc()['count'];
-                                    
-                                    // Get month name if available
+                                    $subfolder_count = $subfolder_count_query ? $subfolder_count_query->fetch_assoc()['count'] : 0;
                                     $month_name = !empty($folder['month']) ? date('F', mktime(0, 0, 0, $folder['month'], 1)) : '';
                                     $semester = !empty($folder['month']) ? getSemesterFromMonth($folder['month']) : '';
                                     $semester_display = $semester == 'first' ? '1st Sem' : ($semester == 'second' ? '2nd Sem' : '');
@@ -787,9 +732,6 @@ $folder_tree = buildFolderTree($folders_list);
                                             <?php if (!empty($month_name)): ?>
                                                 <span class="month-badge"><?php echo $month_name; ?></span>
                                             <?php endif; ?>
-                                            <?php if (!empty($semester_display)): ?>
-                                                <span class="semester-badge"><?php echo $semester_display; ?></span>
-                                            <?php endif; ?>
                                         </a>
                                     </div>
                                     <div class="file-modified" data-label="Modified">
@@ -802,9 +744,6 @@ $folder_tree = buildFolderTree($folders_list);
                                         </button>
                                         <button class="action-btn" onclick="deleteFolder(<?php echo $folder['id']; ?>)" title="Move to Trash">
                                             <i class="fas fa-trash"></i>
-                                        </button>
-                                        <button class="action-btn" onclick="showFolderDetails(<?php echo $folder['id']; ?>)" title="Details">
-                                            <i class="fas fa-info-circle"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -822,13 +761,10 @@ $folder_tree = buildFolderTree($folders_list);
                                     $file_path = $file['file_path'];
                                     $file_size = 0;
                                     
-                                    // Check multiple possible paths for file size
                                     if (file_exists($file_path)) {
                                         $file_size = filesize($file_path);
                                     } elseif (file_exists('uploads/' . basename($file_path))) {
                                         $file_size = filesize('uploads/' . basename($file_path));
-                                    } elseif (file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $file_path)) {
-                                        $file_size = filesize($_SERVER['DOCUMENT_ROOT'] . '/' . $file_path);
                                     }
                                     
                                     $semester = !empty($file['month']) ? getSemesterFromMonth($file['month']) : '';
@@ -846,9 +782,6 @@ $folder_tree = buildFolderTree($folders_list);
                                                 <?php if (!empty($month_name)): ?>
                                                     <span class="month-badge"><?php echo $month_name; ?></span>
                                                 <?php endif; ?>
-                                                <?php if (!empty($semester_display)): ?>
-                                                    <span class="semester-badge"><?php echo $semester_display; ?></span>
-                                                <?php endif; ?>
                                             </a>
                                         </div>
                                         <div class="file-modified" data-label="Modified">
@@ -865,9 +798,6 @@ $folder_tree = buildFolderTree($folders_list);
                                             <button class="action-btn" onclick="deleteFile(<?php echo $file['id']; ?>)" title="Move to Trash">
                                                 <i class="fas fa-trash"></i>
                                             </button>
-                                            <button class="action-btn" onclick="showFileDetails(<?php echo $file['id']; ?>)" title="Details">
-                                                <i class="fas fa-info-circle"></i>
-                                            </button>
                                         </div>
                                     </div>
                             <?php 
@@ -881,19 +811,6 @@ $folder_tree = buildFolderTree($folders_list);
                                     <i class="fas fa-folder-open"></i>
                                     <h3>This folder is empty</h3>
                                     <p>Click the + button to create a folder or upload a file</p>
-                                    <?php if (!empty($year_filter) || !empty($semester_filter)): ?>
-                                        <div class="filter-info">
-                                            <i class="fas fa-filter"></i> 
-                                            Filtered by: 
-                                            <?php if (!empty($year_filter)): ?>
-                                                <span class="filter-tag">Year: <?php echo $year_filter; ?></span>
-                                            <?php endif; ?>
-                                            <?php if (!empty($semester_filter)): ?>
-                                                <span class="filter-tag">Semester: <?php echo $semester_filter == 'first' ? 'First' : 'Second'; ?></span>
-                                            <?php endif; ?>
-                                            <a href="homepage.php?view=drive<?php echo $current_folder_id ? '&folder_id='.$current_folder_id : ''; ?>" class="clear-filter-link">Clear all filters</a>
-                                        </div>
-                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -902,7 +819,7 @@ $folder_tree = buildFolderTree($folders_list);
             <?php endif; ?>
         </div>
 
-        <!-- Floating Action Button (Only in Drive View) -->
+        <!-- Floating Action Button -->
         <?php if ($view == 'drive'): ?>
         <div class="fab-container">
             <div class="fab" onclick="toggleFabMenu()">
@@ -942,90 +859,40 @@ $folder_tree = buildFolderTree($folders_list);
                     <textarea name="description" placeholder="Enter folder description" rows="3"></textarea>
                 </div>
                 
-                <?php if (!$current_folder_id): ?>
-                    <!-- Main Folder Creation -->
+                <?php if ($current_folder_id): ?>
+                    <!-- Subfolder - Year inherited from parent -->
+                    <div class="inheritance-info">
+                        <i class="fas fa-share-alt"></i>
+                        <span>This folder will automatically inherit the year <strong><?php echo $parent_year; ?></strong> from its parent folder.</span>
+                    </div>
+                    
                     <div class="form-group">
-                        <label>Year</label>
-                        <input type="number" name="year" id="folderYear" placeholder="Enter year" min="2000" max="<?php echo date('Y'); ?>" required>
+                        <label>Month (Optional - Override Parent)</label>
+                        <select name="month">
+                            <option value="">Use Parent Month</option>
+                            <?php for ($m = 1; $m <= 12; $m++): ?>
+                                <option value="<?php echo $m; ?>"><?php echo date('F', mktime(0, 0, 0, $m, 1)); ?></option>
+                            <?php endfor; ?>
+                        </select>
+                        <small>Leave empty to inherit month from parent folder</small>
                     </div>
                     
-                    <!-- Month Selection for Main Folder -->
-                    <div class="form-group" id="folderMonthField">
-                        <label>Month</label>
-                        <select name="month" id="folderMonth">
-                            <option value="">Select Month (Optional)</option>
-                            <option value="1">January</option>
-                            <option value="2">February</option>
-                            <option value="3">March</option>
-                            <option value="4">April</option>
-                            <option value="5">May</option>
-                            <option value="6">June</option>
-                            <option value="7">July</option>
-                            <option value="8">August</option>
-                            <option value="9">September</option>
-                            <option value="10">October</option>
-                            <option value="11">November</option>
-                            <option value="12">December</option>
-                        </select>
-                        <small>Select month for this folder (optional)</small>
-                    </div>
                 <?php else: ?>
-                    <!-- Subfolder Creation - Inherit from parent -->
-                    <div class="info-text">
-                        <i class="fas fa-info-circle"></i>
-                        This folder will be created inside: <strong><?php echo htmlspecialchars($current_folder['folder_name']); ?></strong>
+                    <!-- Main Folder - Year required -->
+                    <div class="form-group">
+                        <label>Year <span style="color: #ff4757;">*</span></label>
+                        <input type="number" name="year" placeholder="Enter year" min="2000" max="<?php echo date('Y'); ?>" required>
                     </div>
                     
-                    <?php
-                    // Get parent folder's year and month
-                    $parent_info_query = $conn->query("SELECT year, month FROM folders WHERE id = $current_folder_id");
-                    $parent_info = $parent_info_query->fetch_assoc();
-                    ?>
-                    
-                    <?php if (!empty($parent_info['year'])): ?>
-                        <div class="info-text" style="background: rgba(255, 215, 0, 0.1); border-left-color: #ffd700;">
-                            <i class="fas fa-calendar-alt" style="color: #ffd700;"></i>
-                            This subfolder will inherit year: <strong><?php echo $parent_info['year']; ?></strong>
-                            <?php if (!empty($parent_info['month'])): ?>
-                                and month: <strong><?php echo date('F', mktime(0, 0, 0, $parent_info['month'], 1)); ?></strong>
-                            <?php endif; ?>
-                            <input type="hidden" name="year" value="<?php echo $parent_info['year']; ?>">
-                        </div>
-                    <?php endif; ?>
-                    
-                    <!-- Month Selection for Subfolder -->
-                    <div class="form-group" id="subfolderMonthField">
-                        <label>Month</label>
-                        <select name="month" id="subfolderMonth">
-                            <option value=""><?php echo !empty($parent_info['month']) ? 'Use Parent Month' : 'Select Month (Optional)'; ?></option>
-                            <option value="1">January</option>
-                            <option value="2">February</option>
-                            <option value="3">March</option>
-                            <option value="4">April</option>
-                            <option value="5">May</option>
-                            <option value="6">June</option>
-                            <option value="7">July</option>
-                            <option value="8">August</option>
-                            <option value="9">September</option>
-                            <option value="10">October</option>
-                            <option value="11">November</option>
-                            <option value="12">December</option>
+                    <div class="form-group">
+                        <label>Month (Optional)</label>
+                        <select name="month">
+                            <option value="">Select Month</option>
+                            <?php for ($m = 1; $m <= 12; $m++): ?>
+                                <option value="<?php echo $m; ?>"><?php echo date('F', mktime(0, 0, 0, $m, 1)); ?></option>
+                            <?php endfor; ?>
                         </select>
-                        <small>
-                            <?php echo !empty($parent_info['month']) ? 'Select a different month to override parent, or leave empty to use parent month' : 'Select month for this folder (optional)'; ?>
-                        </small>
                     </div>
-                    
-                    <?php if (!empty($parent_info['month'])): ?>
-                        <script>
-                            // Set the parent month as the default selected option text
-                            document.addEventListener('DOMContentLoaded', function() {
-                                const monthSelect = document.getElementById('subfolderMonth');
-                                const parentMonth = <?php echo $parent_info['month']; ?>;
-                                monthSelect.options[0].text = 'Use Parent Month (<?php echo date('F', mktime(0, 0, 0, $parent_info['month'], 1)); ?>)';
-                            });
-                        </script>
-                    <?php endif; ?>
                 <?php endif; ?>
                 
                 <div class="modal-footer">
@@ -1056,55 +923,57 @@ $folder_tree = buildFolderTree($folders_list);
                 <div class="form-group">
                     <label>Custom File Name (Optional)</label>
                     <input type="text" name="custom_filename" id="customFilename" placeholder="Enter custom name without extension">
-                    <small>Leave empty to use original filename</small>
                 </div>
                 
                 <?php if (!$current_folder_id): ?>
+                    <!-- Root directory upload - need to select folder -->
                     <div class="form-group">
                         <label>Select Folder</label>
-                        <select name="folder_id" id="folderSelect" required onchange="toggleMonthField()">
+                        <select name="folder_id" required>
                             <option value="">Root Directory</option>
                             <?php foreach ($folder_tree as $folder): ?>
-                                <option value="<?php echo $folder['id']; ?>" data-has-year="<?php echo !empty($folder['year']) ? '1' : '0'; ?>">
+                                <option value="<?php echo $folder['id']; ?>">
                                     <?php echo str_repeat('&nbsp;&nbsp;&nbsp;', $folder['level']) . '└─ ' . htmlspecialchars($folder['folder_name']); ?>
                                     <?php if (!empty($folder['year'])): ?>
-                                        [<?php echo $folder['year']; ?>]
+                                        (Year: <?php echo $folder['year']; ?>)
                                     <?php endif; ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                <?php endif; ?>
-                
-                <!-- Month Selection Dropdown -->
-                <div class="form-group" id="monthField">
-                    <label>Month</label>
-                    <select name="month" id="monthSelect">
-                        <option value="">Select Month</option>
-                        <option value="1">January</option>
-                        <option value="2">February</option>
-                        <option value="3">March</option>
-                        <option value="4">April</option>
-                        <option value="5">May</option>
-                        <option value="6">June</option>
-                        <option value="7">July</option>
-                        <option value="8">August</option>
-                        <option value="9">September</option>
-                        <option value="10">October</option>
-                        <option value="11">November</option>
-                        <option value="12">December</option>
-                    </select>
-                    <small>Select the month for this file</small>
-                </div>
-                
-                <!-- Year Field -->
-                <div class="form-group" id="yearField" style="display: none;">
-                    <label>Year</label>
-                    <input type="number" name="year" id="yearInput" placeholder="Enter year" min="2000" max="<?php echo date('Y'); ?>">
-                    <small>Enter the year for this file</small>
-                </div>
-                
-                <?php if ($current_folder_id): ?>
+                    
+                    <div class="form-group">
+                        <label>Year <span style="color: #ff4757;">*</span></label>
+                        <input type="number" name="year" placeholder="Enter year" min="2000" max="<?php echo date('Y'); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Month</label>
+                        <select name="month" required>
+                            <option value="">Select Month</option>
+                            <?php for ($m = 1; $m <= 12; $m++): ?>
+                                <option value="<?php echo $m; ?>"><?php echo date('F', mktime(0, 0, 0, $m, 1)); ?></option>
+                            <?php endfor; ?>
+                        </select>
+                    </div>
+                    
+                <?php else: ?>
+                    <!-- Inside a folder - Year inherited -->
+                    <div class="inheritance-info">
+                        <i class="fas fa-share-alt"></i>
+                        <span>This file will automatically inherit the year <strong><?php echo $parent_year; ?></strong> from the current folder.</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Month (Optional)</label>
+                        <select name="month">
+                            <option value="">Select Month</option>
+                            <?php for ($m = 1; $m <= 12; $m++): ?>
+                                <option value="<?php echo $m; ?>"><?php echo date('F', mktime(0, 0, 0, $m, 1)); ?></option>
+                            <?php endfor; ?>
+                        </select>
+                    </div>
+                    
                     <div class="form-group">
                         <label>Day (Optional)</label>
                         <select name="day">

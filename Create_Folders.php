@@ -28,16 +28,9 @@ if ($month && ($month < 1 || $month > 12)) {
     exit();
 }
 
-// Validate year if provided
-if ($year && ($year < 2000 || $year > intval(date('Y')))) {
-    $_SESSION['error'] = "Invalid year selected.";
-    header("Location: homepage.php" . ($parent_id ? "?folder_id=" . $parent_id : ""));
-    exit();
-}
-
-// Check if it's a main folder or subfolder
+// Check if it's a subfolder (has parent)
 if ($parent_id) {
-    // Subfolder - get parent info
+    // SUBFOLDER - Inherit year from parent
     $parent_query = $conn->query("SELECT year, month, folder_name FROM folders WHERE id = $parent_id");
     if (!$parent_query || $parent_query->num_rows == 0) {
         $_SESSION['error'] = "Parent folder not found.";
@@ -47,20 +40,33 @@ if ($parent_id) {
     
     $parent = $parent_query->fetch_assoc();
     
-    // Determine year for subfolder
-    // Priority: 1. Provided year, 2. Parent's year
-    $folder_year = $year ?: $parent['year'];
+    // INHERIT YEAR FROM PARENT (user cannot override year for subfolders)
+    $folder_year = $parent['year'];
     
-    // Determine month for subfolder
-    // Priority: 1. Provided month, 2. Parent's month
+    // Month can be overridden or inherited
     $folder_month = $month ?: $parent['month'];
     
-    // Insert subfolder
+    // Insert subfolder with inherited year
     $sql = "INSERT INTO folders (folder_name, description, parent_id, year, month) VALUES (?, ?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("ssiii", $folder_name, $description, $parent_id, $folder_year, $folder_month);
+    
 } else {
-    // Main folder - use provided year and month
+    // MAIN FOLDER - Year is required
+    if (empty($year)) {
+        $_SESSION['error'] = "Year is required for main folders.";
+        header("Location: homepage.php");
+        exit();
+    }
+    
+    // Validate year
+    if ($year < 2000 || $year > intval(date('Y'))) {
+        $_SESSION['error'] = "Invalid year selected.";
+        header("Location: homepage.php");
+        exit();
+    }
+    
+    // Insert main folder
     $sql = "INSERT INTO folders (folder_name, description, year, month) VALUES (?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("ssii", $folder_name, $description, $year, $month);
@@ -81,7 +87,6 @@ if ($stmt->execute()) {
         $path = [];
         $current_id = $parent_id;
         
-        // Build path array from parent up to root
         while ($current_id) {
             $path_query = $conn->query("SELECT id, folder_name, parent_id FROM folders WHERE id = $current_id");
             if ($path_query && $path_row = $path_query->fetch_assoc()) {
@@ -108,18 +113,16 @@ if ($stmt->execute()) {
     // Create the final folder
     if (!file_exists($folder_path)) {
         if (mkdir($folder_path, 0777, true)) {
-            // Success message with month info if provided
             $success_msg = "Folder created successfully!";
-            if ($folder_month) {
-                $month_name = date('F', mktime(0, 0, 0, $folder_month, 1));
-                $success_msg .= " (Month: $month_name)";
+            if (isset($folder_year)) {
+                $success_msg .= " (Year: $folder_year)";
             }
             $_SESSION['success'] = $success_msg;
         } else {
             $_SESSION['error'] = "Folder created in database but could not create physical directory.";
         }
     } else {
-        $_SESSION['error'] = "A folder with this name already exists in the physical directory.";
+        $_SESSION['error'] = "A folder with this name already exists.";
     }
 } else {
     $_SESSION['error'] = "Error creating folder: " . $conn->error;
@@ -129,15 +132,6 @@ if ($stmt->execute()) {
 $redirect = "homepage.php";
 if ($parent_id) {
     $redirect .= "?folder_id=" . $parent_id;
-}
-// Preserve filters if they exist
-$params = [];
-if (!empty($_GET['year'])) $params[] = "year=" . urlencode($_GET['year']);
-if (!empty($_GET['semester'])) $params[] = "semester=" . urlencode($_GET['semester']);
-if (!empty($_GET['search'])) $params[] = "search=" . urlencode($_GET['search']);
-
-if (!empty($params)) {
-    $redirect .= (strpos($redirect, '?') === false ? '?' : '&') . implode('&', $params);
 }
 
 header("Location: " . $redirect);

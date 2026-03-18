@@ -7,11 +7,23 @@ if (!isset($_SESSION['admin_logged_in'])) {
     exit();
 }
 
-$id = intval($_GET['id']);
-$new_name = $_GET['name'];
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$new_name = isset($_GET['name']) ? trim($_GET['name']) : '';
+
+if ($id <= 0 || empty($new_name)) {
+    $_SESSION['error'] = "Invalid request parameters.";
+    header("Location: homepage.php");
+    exit();
+}
 
 // Get old folder info
 $folder_query = $conn->query("SELECT * FROM folders WHERE id = $id");
+if (!$folder_query || $folder_query->num_rows == 0) {
+    $_SESSION['error'] = "Folder not found.";
+    header("Location: homepage.php");
+    exit();
+}
+
 $old_folder = $folder_query->fetch_assoc();
 
 // Update database
@@ -41,6 +53,11 @@ if ($stmt->execute()) {
     $_SESSION['error'] = "Error renaming folder.";
 }
 
-header("Location: homepage.php?folder_id=" . $old_folder['parent_id']);
+$redirect = "homepage.php";
+if ($old_folder['parent_id']) {
+    $redirect .= "?folder_id=" . $old_folder['parent_id'];
+}
+
+header("Location: " . $redirect);
 exit();
 ?>

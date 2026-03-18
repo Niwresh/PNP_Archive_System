@@ -7,11 +7,23 @@ if (!isset($_SESSION['admin_logged_in'])) {
     exit();
 }
 
-$id = intval($_GET['id']);
-$new_name = $_GET['name'];
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$new_name = isset($_GET['name']) ? trim($_GET['name']) : '';
+
+if ($id <= 0 || empty($new_name)) {
+    $_SESSION['error'] = "Invalid request parameters.";
+    header("Location: homepage.php");
+    exit();
+}
 
 // Get old file info
 $file_query = $conn->query("SELECT * FROM files WHERE id = $id");
+if (!$file_query || $file_query->num_rows == 0) {
+    $_SESSION['error'] = "File not found.";
+    header("Location: homepage.php");
+    exit();
+}
+
 $old_file = $file_query->fetch_assoc();
 
 $file_extension = pathinfo($old_file['file_name'], PATHINFO_EXTENSION);
@@ -39,6 +51,11 @@ if ($stmt->execute()) {
     $_SESSION['error'] = "Error renaming file.";
 }
 
-header("Location: homepage.php?folder_id=" . $old_file['folder_id']);
+$redirect = "homepage.php";
+if ($old_file['folder_id']) {
+    $redirect .= "?folder_id=" . $old_file['folder_id'];
+}
+
+header("Location: " . $redirect);
 exit();
 ?>

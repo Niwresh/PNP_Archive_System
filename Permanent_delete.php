@@ -16,12 +16,11 @@ if (empty($type) || $id <= 0) {
     exit();
 }
 
-if ($type == 'folder') {
-    restoreFromTrash('folder', $id, $conn);
-    $_SESSION['success'] = "Folder restored successfully!";
-} elseif ($type == 'file') {
-    restoreFromTrash('file', $id, $conn);
-    $_SESSION['success'] = "File restored successfully!";
+if (function_exists('permanentlyDelete')) {
+    permanentlyDelete($type, $id, $conn);
+    $_SESSION['success'] = ucfirst($type) . " permanently deleted!";
+} else {
+    $_SESSION['error'] = "Function permanentlyDelete not found.";
 }
 
 header("Location: homepage.php?view=trash");

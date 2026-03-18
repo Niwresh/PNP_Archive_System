@@ -14,8 +14,61 @@ if ($conn->connect_error) {
 // Set charset to UTF-8
 $conn->set_charset("utf8mb4");
 
-// Define total storage limit (10GB)
-define('TOTAL_STORAGE_LIMIT', 5 * 573741824); // 5GB in bytes
+// Define total storage limit (5GB)
+define('TOTAL_STORAGE_LIMIT', 5 * 1024 * 1024 * 1024); // 5GB in bytes
+
+/* =========================
+   SEMESTER FUNCTIONS - MUST BE FIRST
+========================= */
+
+/**
+ * Function to determine semester from month
+ * @param int $month Month number (1-12)
+ * @return string Semester ('first', 'second', or empty string)
+ */
+function getSemesterFromMonth($month) {
+    if (empty($month)) return '';
+    
+    $month = intval($month);
+    if ($month >= 1 && $month <= 6) {
+        return 'first';
+    } elseif ($month >= 7 && $month <= 12) {
+        return 'second';
+    }
+    return '';
+}
+
+/**
+ * Function to get month range for semester
+ * @param string $semester 'first' or 'second'
+ * @return array [start_month, end_month]
+ */
+function getSemesterMonths($semester) {
+    if ($semester == 'first') {
+        return [1, 6]; // January to June
+    } elseif ($semester == 'second') {
+        return [7, 12]; // July to December
+    }
+    return [1, 12]; // All months if no semester selected
+}
+
+/**
+ * Function to get semester name for display
+ * @param string $semester 'first' or 'second'
+ * @return string Semester name
+ */
+function getSemesterName($semester) {
+    if ($semester == 'first') {
+        return 'First Semester';
+    } elseif ($semester == 'second') {
+        return 'Second Semester';
+    }
+    return '';
+}
+
+/* =========================
+   STORAGE FUNCTIONS
+========================= */
 
 // Function to calculate total storage used
 function calculateTotalStorage($conn) {
@@ -29,48 +82,15 @@ function calculateTotalStorage($conn) {
             // Check multiple possible paths
             if (file_exists($file_path)) {
                 $storage_used += filesize($file_path);
-            } 
-            // Check if path starts with uploads/
-            elseif (file_exists('uploads/' . basename($file_path))) {
+            } elseif (file_exists('uploads/' . basename($file_path))) {
                 $storage_used += filesize('uploads/' . basename($file_path));
-            }
-            // Check absolute path from document root
-            elseif (file_exists($_SERVER['DOCUMENT_ROOT'] . '/PNP_Archive_System/Admin/' . $file_path)) {
-                $storage_used += filesize($_SERVER['DOCUMENT_ROOT'] . '/PNP_Archive_System/Admin/' . $file_path);
-            }
-            // Check relative path from admin directory
-            elseif (file_exists(__DIR__ . '/' . $file_path)) {
+            } elseif (file_exists(__DIR__ . '/' . $file_path)) {
                 $storage_used += filesize(__DIR__ . '/' . $file_path);
             }
         }
     }
     
     return $storage_used;
-}
-
-// Function to get storage statistics
-function getStorageStats($conn) {
-    $storage_used = calculateTotalStorage($conn);
-    $storage_percent = min(100, round(($storage_used / TOTAL_STORAGE_LIMIT) * 100, 1));
-    
-    // Determine color based on usage
-    $color = '#4caf50'; // Green
-    if ($storage_percent > 80) {
-        $color = '#ff9800'; // Orange
-    }
-    if ($storage_percent > 95) {
-        $color = '#f44336'; // Red
-    }
-    
-    return [
-        'used' => $storage_used,
-        'used_formatted' => formatFileSize($storage_used),
-        'percent' => $storage_percent,
-        'color' => $color,
-        'total_formatted' => '10 GB',
-        'free' => TOTAL_STORAGE_LIMIT - $storage_used,
-        'free_formatted' => formatFileSize(TOTAL_STORAGE_LIMIT - $storage_used)
-    ];
 }
 
 // Function to format file size
@@ -89,6 +109,10 @@ function formatFileSize($bytes) {
         return '0 bytes';
     }
 }
+
+/* =========================
+   FOLDER FUNCTIONS
+========================= */
 
 // Function to get folder path hierarchy
 function getFolderPath($folder_id, $conn) {
@@ -147,9 +171,7 @@ function getFileIcon($filename) {
 
 // Function to sanitize filename
 function sanitizeFilename($filename) {
-    // Remove any path information
     $filename = basename($filename);
-    // Replace special characters
     $filename = preg_replace('/[^a-zA-Z0-9\-\.\s_]/', '', $filename);
     return $filename;
 }
@@ -160,14 +182,6 @@ function createDirectory($path) {
         return mkdir($path, 0777, true);
     }
     return true;
-}
-
-// Function to get human readable file size
-function getHumanReadableSize($file_path) {
-    if (file_exists($file_path)) {
-        return formatFileSize(filesize($file_path));
-    }
-    return '0 bytes';
 }
 
 // Function to check if folder has children
@@ -189,7 +203,6 @@ function countFilesInFolder($folder_id, $conn) {
 function getFolderSize($folder_id, $conn) {
     $total_size = 0;
     
-    // Get all files in this folder
     $files_query = $conn->query("SELECT file_path FROM files WHERE folder_id = $folder_id AND deleted_at IS NULL");
     while ($file = $files_query->fetch_assoc()) {
         if (file_exists($file['file_path'])) {
@@ -197,7 +210,6 @@ function getFolderSize($folder_id, $conn) {
         }
     }
     
-    // Get all subfolders
     $subfolders_query = $conn->query("SELECT id FROM folders WHERE parent_id = $folder_id AND deleted_at IS NULL");
     while ($subfolder = $subfolders_query->fetch_assoc()) {
         $total_size += getFolderSize($subfolder['id'], $conn);
@@ -206,21 +218,30 @@ function getFolderSize($folder_id, $conn) {
     return $total_size;
 }
 
+// Function to get human readable file size
+function getHumanReadableSize($file_path) {
+    if (file_exists($file_path)) {
+        return formatFileSize(filesize($file_path));
+    }
+    return '0 bytes';
+}
+
+/* =========================
+   TRASH FUNCTIONS
+========================= */
+
 // Function to move item to trash
 function moveToTrash($type, $id, $conn) {
     $deleted_at = date('Y-m-d H:i:s');
     
     if ($type == 'folder') {
-        // Recursively move all subfolders and files to trash
         $conn->query("UPDATE folders SET deleted_at = '$deleted_at' WHERE id = $id");
         
-        // Get all subfolders
         $subfolders = $conn->query("SELECT id FROM folders WHERE parent_id = $id");
         while ($subfolder = $subfolders->fetch_assoc()) {
             moveToTrash('folder', $subfolder['id'], $conn);
         }
         
-        // Get all files in this folder
         $files = $conn->query("SELECT id FROM files WHERE folder_id = $id");
         while ($file = $files->fetch_assoc()) {
             $conn->query("UPDATE files SET deleted_at = '$deleted_at' WHERE id = " . $file['id']);
@@ -238,16 +259,13 @@ function moveToTrash($type, $id, $conn) {
 // Function to restore item from trash
 function restoreFromTrash($type, $id, $conn) {
     if ($type == 'folder') {
-        // Restore folder
         $conn->query("UPDATE folders SET deleted_at = NULL WHERE id = $id");
         
-        // Restore all subfolders
         $subfolders = $conn->query("SELECT id FROM folders WHERE parent_id = $id");
         while ($subfolder = $subfolders->fetch_assoc()) {
             restoreFromTrash('folder', $subfolder['id'], $conn);
         }
         
-        // Restore all files in this folder
         $files = $conn->query("SELECT id FROM files WHERE folder_id = $id");
         while ($file = $files->fetch_assoc()) {
             $conn->query("UPDATE files SET deleted_at = NULL WHERE id = " . $file['id']);
@@ -265,7 +283,6 @@ function restoreFromTrash($type, $id, $conn) {
 // Function to permanently delete item
 function permanentlyDelete($type, $id, $conn) {
     if ($type == 'folder') {
-        // Get all files in this folder and delete physically
         $files = $conn->query("SELECT file_path FROM files WHERE folder_id = $id");
         while ($file = $files->fetch_assoc()) {
             if (file_exists($file['file_path'])) {
@@ -273,19 +290,15 @@ function permanentlyDelete($type, $id, $conn) {
             }
         }
         
-        // Delete files from database
         $conn->query("DELETE FROM files WHERE folder_id = $id");
         
-        // Get all subfolders and delete recursively
         $subfolders = $conn->query("SELECT id FROM folders WHERE parent_id = $id");
         while ($subfolder = $subfolders->fetch_assoc()) {
             permanentlyDelete('folder', $subfolder['id'], $conn);
         }
         
-        // Delete folder from database
         $conn->query("DELETE FROM folders WHERE id = $id");
         
-        // Try to delete physical folder
         $path = getFolderPath($id, $conn);
         if (!empty($path)) {
             $physical_path = "uploads/";
@@ -299,7 +312,6 @@ function permanentlyDelete($type, $id, $conn) {
         
         return true;
     } elseif ($type == 'file') {
-        // Get file info
         $file_query = $conn->query("SELECT file_path FROM files WHERE id = $id");
         if ($file = $file_query->fetch_assoc()) {
             if (file_exists($file['file_path'])) {
@@ -307,11 +319,34 @@ function permanentlyDelete($type, $id, $conn) {
             }
         }
         
-        // Delete from database
         $conn->query("DELETE FROM files WHERE id = $id");
         return true;
     }
     
     return false;
+}
+
+// Function to get storage statistics
+function getStorageStats($conn) {
+    $storage_used = calculateTotalStorage($conn);
+    $storage_percent = min(100, round(($storage_used / TOTAL_STORAGE_LIMIT) * 100, 1));
+    
+    $color = '#4caf50';
+    if ($storage_percent > 80) {
+        $color = '#ff9800';
+    }
+    if ($storage_percent > 95) {
+        $color = '#f44336';
+    }
+    
+    return [
+        'used' => $storage_used,
+        'used_formatted' => formatFileSize($storage_used),
+        'percent' => $storage_percent,
+        'color' => $color,
+        'total_formatted' => '5 GB',
+        'free' => TOTAL_STORAGE_LIMIT - $storage_used,
+        'free_formatted' => formatFileSize(TOTAL_STORAGE_LIMIT - $storage_used)
+    ];
 }
 ?>
