@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (currentRenameType === "folder") {
-                window.location.href = `rename_folder.php?id=${currentRenameId}&name=${encodeURIComponent(newName)}`;
+                window.location.href = `Rename_Folder.php?id=${currentRenameId}&name=${encodeURIComponent(newName)}`;
             }
 
             if (currentRenameType === "file") {

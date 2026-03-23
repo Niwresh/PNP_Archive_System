@@ -53,7 +53,7 @@ if ($stmt->execute()) {
     $_SESSION['error'] = "Error renaming folder.";
 }
 
-$redirect = "homepage.php";
+$redirect = "Homepage.php";
 if ($old_folder['parent_id']) {
     $redirect .= "?folder_id=" . $old_folder['parent_id'];
 }

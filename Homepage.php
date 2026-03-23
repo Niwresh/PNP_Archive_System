@@ -343,17 +343,17 @@ if ($current_folder_id) {
             
             <ul class="sidebar-menu">
                 <li class="<?php echo $view == 'dashboard' ? 'active' : ''; ?>">
-                    <a href="homepage.php?view=dashboard">
+                    <a href="Homepage.php?view=dashboard">
                         <i class="fas fa-tachometer-alt"></i> <span>Dashboard</span>
                     </a>
                 </li>
                 <li class="<?php echo $view == 'drive' ? 'active' : ''; ?>">
-                    <a href="homepage.php?view=drive">
+                    <a href="Homepage.php?view=drive">
                         <i class="fas fa-folder"></i> <span>My Drive</span>
                     </a>
                 </li>
                 <li class="<?php echo $view == 'trash' ? 'active' : ''; ?>">
-                    <a href="homepage.php?view=trash">
+                    <a href="Homepage.php?view=trash">
                         <i class="fas fa-trash"></i> <span>Trash</span>
                         <?php if ($trash_files + $trash_folders > 0): ?>
                             <span class="trash-badge"><?php echo $trash_files + $trash_folders; ?></span>
@@ -411,12 +411,12 @@ if ($current_folder_id) {
             <div class="top-bar">
                 <div class="breadcrumb">
                     <?php if ($view == 'trash'): ?>
-                        <a href="homepage.php?view=trash"><i class="fas fa-trash"></i> Trash</a>
+                        <a href="Homepage.php?view=trash"><i class="fas fa-trash"></i> Trash</a>
                     <?php else: ?>
-                        <a href="homepage.php?view=drive"><i class="fas fa-home"></i> My Drive</a>
+                        <a href="Homepage.php?view=drive"><i class="fas fa-home"></i> My Drive</a>
                         <?php foreach ($folder_path as $folder): ?>
                             <i class="fas fa-chevron-right"></i>
-                            <a href="homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?>">
+                            <a href="Homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?>">
                                 <?php echo htmlspecialchars($folder['folder_name']); ?>
                                 <?php if (!empty($folder['year'])): ?>
                                     <span class="year-badge"><?php echo $folder['year']; ?></span>
@@ -468,7 +468,7 @@ if ($current_folder_id) {
                                     <i class="fas fa-folder-plus"></i>
                                     <span>Create Folder</span>
                                 </button>
-                                <a href="homepage.php?view=drive" class="quick-action-btn">
+                                <a href="Homepage.php?view=drive" class="quick-action-btn">
                                     <i class="fas fa-folder-open"></i>
                                     <span>Go to Drive</span>
                                 </a>
@@ -524,7 +524,7 @@ if ($current_folder_id) {
                                 <span><?php echo $trash_folders; ?></span>
                             </div>
                             <div class="info-item">
-                                <a href="homepage.php?view=trash" class="quick-action-btn" style="width: 100%; justify-content: center; margin-top: 10px;">
+                                <a href="Homepage.php?view=trash" class="quick-action-btn" style="width: 100%; justify-content: center; margin-top: 10px;">
                                     <i class="fas fa-trash"></i> View Trash
                                 </a>
                             </div>
@@ -543,9 +543,9 @@ if ($current_folder_id) {
                                 <small style="font-size: 14px; opacity: 0.7; margin-left: 10px;">Items are automatically deleted after 30 days</small>
                             </h3>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                <a href="homepage.php?view=trash&trash_filter=all" class="filter-btn <?php echo $trash_filter == 'all' ? 'active' : ''; ?>">All</a>
-                                <a href="homepage.php?view=trash&trash_filter=folders" class="filter-btn <?php echo $trash_filter == 'folders' ? 'active' : ''; ?>">Folders</a>
-                                <a href="homepage.php?view=trash&trash_filter=files" class="filter-btn <?php echo $trash_filter == 'files' ? 'active' : ''; ?>">Files</a>
+                                <a href="Homepage.php?view=trash&trash_filter=all" class="filter-btn <?php echo $trash_filter == 'all' ? 'active' : ''; ?>">All</a>
+                                <a href="Homepage.php?view=trash&trash_filter=folders" class="filter-btn <?php echo $trash_filter == 'folders' ? 'active' : ''; ?>">Folders</a>
+                                <a href="Homepage.php?view=trash&trash_filter=files" class="filter-btn <?php echo $trash_filter == 'files' ? 'active' : ''; ?>">Files</a>
                                 <button onclick="emptyTrash()" class="filter-btn" style="background: #ff4757; color: white;">
                                     <i class="fas fa-trash-alt"></i> Empty Trash
                                 </button>
@@ -691,7 +691,7 @@ if ($current_folder_id) {
                             
                             <button type="submit" class="filter-btn">Search</button>
                             <?php if ($current_folder_id || $search || $year_filter || $semester_filter): ?>
-                                <a href="homepage.php?view=drive" class="clear-filters">Clear All</a>
+                                <a href="Homepage.php?view=drive" class="clear-filters">Clear All</a>
                             <?php endif; ?>
                         </form>
                     </div>
@@ -721,7 +721,7 @@ if ($current_folder_id) {
                                 <div class="file-item folder-item" data-id="<?php echo $folder['id']; ?>">
                                     <div class="file-name">
                                         <i class="fas fa-folder folder-icon"></i>
-                                        <a href="homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?><?php echo $year_filter ? '&year='.$year_filter : ''; ?><?php echo $semester_filter ? '&semester='.$semester_filter : ''; ?>">
+                                        <a href="Homepage.php?view=drive&folder_id=<?php echo $folder['id']; ?><?php echo $year_filter ? '&year='.$year_filter : ''; ?><?php echo $semester_filter ? '&semester='.$semester_filter : ''; ?>">
                                             <?php echo htmlspecialchars($folder['folder_name']); ?>
                                             <?php if ($subfolder_count > 0): ?>
                                                 <span class="badge"><?php echo $subfolder_count; ?> subfolders</span>
