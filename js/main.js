@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (confirmPermanentDeleteBtn) {
         confirmPermanentDeleteBtn.addEventListener('click', function() {
             if (currentDeleteId && currentDeleteType) {
-                window.location.href = `permanent_delete.php?type=${currentDeleteType}&id=${currentDeleteId}`;
+                window.location.href = `Permanent_delete.php?type=${currentDeleteType}&id=${currentDeleteId}`;
             }
         });
     }

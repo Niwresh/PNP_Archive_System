@@ -20,6 +20,6 @@ while ($file = $files->fetch_assoc()) {
 }
 
 $_SESSION['success'] = "Trash emptied successfully!";
-header("Location: homepage.php?view=trash");
+header("Location: Homepage.php?view=trash");
 exit();
 ?>
