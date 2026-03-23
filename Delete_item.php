@@ -13,7 +13,7 @@ $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 if (empty($type) || $id <= 0) {
     $_SESSION['error'] = "Invalid request parameters.";
-    header("Location: homepage.php");
+    header("Location: Homepage.php");
     exit();
 }
 
@@ -39,7 +39,7 @@ if ($type == 'folder') {
     }
 }
 
-$redirect = "homepage.php?view=drive";
+$redirect = "Homepage.php?view=drive";
 if ($redirect_folder) {
     $redirect .= "&folder_id=" . $redirect_folder;
 }

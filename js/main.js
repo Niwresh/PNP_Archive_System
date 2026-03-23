@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (confirmDeleteBtn) {
         confirmDeleteBtn.addEventListener('click', function() {
             if (currentDeleteId && currentDeleteType) {
-                window.location.href = `delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}`;
+                window.location.href = `Delete_item.php?type=${currentDeleteType}&id=${currentDeleteId}`;
             }
         });
     }
