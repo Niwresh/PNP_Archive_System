@@ -12,7 +12,7 @@ $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 if (empty($type) || $id <= 0) {
     $_SESSION['error'] = "Invalid request parameters.";
-    header("Location: homepage.php?view=trash");
+    header("Location:Homepage.php?view=trash");
     exit();
 }
 
@@ -23,6 +23,6 @@ if (function_exists('permanentlyDelete')) {
     $_SESSION['error'] = "Function permanentlyDelete not found.";
 }
 
-header("Location: homepage.php?view=trash");
+header("Location: Homepage.php?view=trash");
 exit();
 ?>
