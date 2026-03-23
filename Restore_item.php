@@ -12,7 +12,7 @@ $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 if (empty($type) || $id <= 0) {
     $_SESSION['error'] = "Invalid request parameters.";
-    header("Location: homepage.php?view=trash");
+    header("Location: Homepage.php?view=trash");
     exit();
 }
 
@@ -24,6 +24,6 @@ if ($type == 'folder') {
     $_SESSION['success'] = "File restored successfully!";
 }
 
-header("Location: homepage.php?view=trash");
+header("Location: Homepage.php?view=trash");
 exit();
 ?>
