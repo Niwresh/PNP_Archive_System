@@ -162,14 +162,14 @@ document.addEventListener('DOMContentLoaded', function() {
        TRASH FUNCTIONS
     ========================= */
     window.restoreFolder = function(id) {
-        if (confirm('Restore this folder?')) {
-            window.location.href = `restore_item.php?type=folder&id=${id}`;
+        if (confirm('Restore this folder?')) {x
+            window.location.href = `Restore_item.php?type=folder&id=${id}`;
         }
     };
 
     window.restoreFile = function(id) {
         if (confirm('Restore this file?')) {
-            window.location.href = `restore_item.php?type=file&id=${id}`;
+            window.location.href = `Restore_item.php?type=file&id=${id}`;
         }
     };
 
@@ -451,4 +451,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     console.log('PNP Archive: Mobile responsive initialized');
+});
+
+/* =========================
+   WINDOWS STYLE HINT CLEAR
+========================= */
+document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('input', function () {
+        this.classList.remove('error');
+
+        const hint = this.parentElement.querySelector('.hint');
+        if (hint) {
+            hint.remove();
+        }
+    });
 });

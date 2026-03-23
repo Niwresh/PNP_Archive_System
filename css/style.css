@@ -224,3 +224,41 @@ h1{
 }
 
 }
+
+/* ===== WINDOWS STYLE INPUT ERROR ===== */
+.hint{
+    color:#ce1126;
+    font-size:12px;
+    margin-top:5px;
+    display:block;
+}
+
+/* red border like Windows */
+input.error{
+    border-color:#ce1126 !important;
+    background:#fff5f5;
+}
+
+/* smooth animation */
+input{
+    transition:0.2s ease;
+}
+
+/* optional shake effect */
+@keyframes shake{
+    0%{transform:translateX(0);}
+    25%{transform:translateX(-3px);}
+    50%{transform:translateX(3px);}
+    75%{transform:translateX(-3px);}
+    100%{transform:translateX(0);}
+}
+
+input.error{
+    animation:shake 0.2s;
+}
+
+/* password hint (blue like Windows help text) */
+.hint[style]{
+    font-style: italic;
+    font-size: 12px;
+}
