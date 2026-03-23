@@ -129,7 +129,7 @@ if ($stmt->execute()) {
 }
 
 // Redirect back
-$redirect = "homepage.php";
+$redirect = "Homepage.php";
 if ($parent_id) {
     $redirect .= "?folder_id=" . $parent_id;
 }
