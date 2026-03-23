@@ -466,3 +466,21 @@ document.querySelectorAll('input').forEach(input => {
         }
     });
 });
+
+/* =========================
+   SHOW / HIDE PASSWORD
+========================= */
+window.togglePassword = function () {
+    const passwordInput = document.getElementById("password");
+    const icon = document.querySelector(".toggle-password");
+    
+    if (passwordInput && icon) {
+        if (passwordInput.type === "password") {
+            passwordInput.type = "text";
+            icon.textContent = "🙈"; // Hide icon when visible
+        } else {
+            passwordInput.type = "password";
+            icon.textContent = "👁️"; // Eye icon when hidden
+        }
+    }
+};

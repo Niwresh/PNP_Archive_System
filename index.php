@@ -3,7 +3,7 @@ session_start();
 
 define('ADMIN_EMAIL', 'admin@phnational.gov.ph');
 define('ADMIN_PASSWORD', 'PNADMIN2024');
-define('ADMIN_HINT', 'Starts with PN and ends with 2024'); // 👈 your hint
+define('ADMIN_HINT', 'Starts with PN and ends with 2024');
 
 $error_email = '';
 $error_password = '';
@@ -25,17 +25,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     } elseif ($password !== ADMIN_PASSWORD) {
 
-        $_SESSION['login_attempts']++; // increase attempts
+        $_SESSION['login_attempts']++;
         $error_password = 'Incorrect password';
 
-        // show hint after 3 tries
+        // show hint after 3 attempts
         if ($_SESSION['login_attempts'] >= 3) {
             $password_hint = ADMIN_HINT;
         }
 
     } else {
 
-        // reset attempts on success
         $_SESSION['login_attempts'] = 0;
 
         $_SESSION['admin_logged_in'] = true;
@@ -87,28 +86,30 @@ autofocus
 <?php endif; ?>
 </div>
 
-<!-- PASSWORD -->
+<!-- PASSWORD FIELD WITH SHOW/HIDE BUTTON -->
 <div class="input-group">
-<label for="password">PASSWORD</label>
-<input
-type="password"
-id="password"
-name="password"
-placeholder="Enter admin password"
-class="<?php echo $error_password ? 'error' : ''; ?>"
-required
->
-
-<?php if ($error_password): ?>
-<small class="hint"><?php echo $error_password; ?></small>
-<?php endif; ?>
-
-<?php if ($password_hint): ?>
-<small class="hint" style="color:#0038a8;">
-💡 Hint: <?php echo $password_hint; ?>
-</small>
-<?php endif; ?>
-
+    <label for="password">PASSWORD</label>
+    <div class="password-wrapper">
+        <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Enter admin password"
+            class="<?php echo $error_password ? 'error' : ''; ?>"
+            required
+        >
+        <button type="button" class="toggle-password" onclick="togglePassword()">
+            👁️
+        </button>
+    </div>
+    <?php if ($error_password): ?>
+        <small class="hint"><?php echo $error_password; ?></small>
+    <?php endif; ?>
+    <?php if ($password_hint): ?>
+        <small class="hint" style="color:#0038a8;">
+            💡 Hint: <?php echo $password_hint; ?>
+        </small>
+    <?php endif; ?>
 </div>
 
 <button type="submit" class="login-btn">LOGIN</button>
@@ -118,5 +119,6 @@ required
 </div>
 
 <script src="js/main.js"></script>
+
 </body>
 </html>

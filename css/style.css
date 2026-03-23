@@ -262,3 +262,55 @@ input.error{
     font-style: italic;
     font-size: 12px;
 }
+
+/* ===== PASSWORD TOGGLE STYLES ===== */
+.password-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.password-wrapper input {
+    width: 100%;
+    padding: 12px 45px 12px 12px;  /* Right padding for button space */
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.password-wrapper input:focus {
+    outline: none;
+    border-color: #0038a8;
+    box-shadow: 0 0 0 3px rgba(0,56,168,0.15);
+}
+
+.toggle-password {
+    position: absolute;  /* Changed from relative to absolute */
+    right: 12px;        /* Keep it inside the input field */
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 18px;
+    color: #666;
+    user-select: none;
+    z-index: 2;
+    transition: color 0.3s ease;
+    background: transparent;
+    border: none;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toggle-password:hover {
+    color: #0038a8;
+}
+
+/* Error state for password input */
+.password-wrapper input.error {
+    border-color: #ce1126 !important;
+    background: #fff5f5;
+}
